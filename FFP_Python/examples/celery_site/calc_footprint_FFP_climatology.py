@@ -592,7 +592,7 @@ def plot_footprint(x_2d, y_2d, fs, clevs=None, show_heatmap=True, normalize=None
         #Colorbar
         cbar = fig.colorbar(im, shrink=1.0, format='%.3e')
         #cbar.set_label('Flux contribution', color = 'k')
-    plt.show()
+    #plt.show()
 
     return fig, ax
 
