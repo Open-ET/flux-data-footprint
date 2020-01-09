@@ -1,3 +1,11 @@
+#
+*.xlsx
+*~
+celery_out/*.png
+celery_animation
+**/*out/*
+**/output/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
