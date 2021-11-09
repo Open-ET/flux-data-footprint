@@ -2,19 +2,25 @@
 # coding: utf-8
 """ 
 This script was developed to parallel process preformatted time series of
-input data needed for the Kljun et. al 2d flux footprint prediction code and
-ultimately create daily-ETo-weighted footprint georeferenced footprint rasters. 
+input data needed for the Kljun et. al (2015) 2d flux footprint prediction 
+code and create daily ETo-weighted footprint georeferenced 
+footprint rasters. 
 
-Checks are performed on the input data to handle data quality issues. The
-weighting method uses normalized hourly proportions of ASCE ETo computed from
+The weighting method uses normalized hourly proportions of ASCE ETo computed from
 NLDAS v2 data for the closest cell.  NLDAS data is automatically downloaded
 using OpenDAP given Earthdata login info. Only days with 5 or more hours of
 data (only from hours between 6:00AM to 8:00 PM) must exist in a day.  Checks
-are performed to ensure final weighting procedure was successful at different
+are performed to ensure the weighting procedure was successful at different
 steps of the process. 
 
-This script is not intended to be used by others but to document a workflow
-that was employed for scientific purposes.
+The footprint process was written to run multiple sites in parallel, by default
+using half the available processors on the machine.
+
+This script documents a workflow used for remote sensing research at the
+Desert Research Institute, Reno, NV, USA. Methods were developed by John Volk
+at the Desert Research Institute, with contributions from 
+Martin Schroeder at Utah State University, Richard Allen at Univeristy of Idaho, and
+David Eckhardt at the U.S. Bureau of Reclamation.
 """
 from pathlib import Path
 import calc_footprint_FFP_climatology as ffp
@@ -29,13 +35,22 @@ import requests
 import multiprocessing as mp
 __author__='John Volk'
 
-# read metadata that has each sites' elevation used in ETr/ETo calcs
-AMF_meta_path = Path('path/to/site_metadata')
-AMF_meta = pd.read_csv(AMF_meta_path, index_col='SITE_ID')
-# specify path with input CSV files for each station with 
-# input time series of needed data, e.g. zm, u_star, L,...
-in_dir = Path('dir/with/input')
-hourly_files = list(in_dir.glob('*.csv'))
+# Input time series files should be CSV format and have the following columns:
+# 'date' a datetime string, e.g. 01/10/2005 10:30:00
+# 'latitude' [decimal degrees]
+# 'longitude' [decimal degrees]
+# 'ET_corr' evapotranspiration [any units] - used to skip dates without ET data
+# 'wind_dir' wind direction [degrees 0-360]
+# 'u_star' friction velocity [m/s]
+# 'sigma_v' standard deviation of lateral wind velocity [m/s]
+# 'zm' wind speed measurement height [m]
+# 'hc' canopy height [m]
+# 'd' displacement height [m]
+# 'L' Monin-Obhukov Length [m]
+# 'z0' (if available roughness length) [m]
+
+# the name of input file should be the same as the site ID found in the metadata
+
 
 def read_compiled_input(path):
     """
@@ -71,23 +86,30 @@ def runner(path, ed_user, ed_pass):
     
     Requires NASA Earthdata username and password to download NLDAS-v2
     primary forcing at point locations for estimated ASCE short ref. ET.
+    
+    Arguments:
+        path (pathlib.Path): Path object of input timeseries file, input file should be
+            a CSV and the name of the file should be the site ID.
+        ed_user (str): NASA Earthdata username
+        ed_pass (str): NASA Earthdata password
     """
     df, latitude, longitude = read_compiled_input(path)
     station = path.stem
-    elevation = AMF_meta.loc[station, 'station_elevation']
+    elevation = meta.loc[station, 'station_elevation']
     station_coord = (longitude, latitude)
+    
     # get EPSG code from lat,long, convert to UTM
     EPSG=32700-np.round((45+latitude)/90.0)*100+np.round((183+longitude)/6.0)
     EPSG = int(EPSG)
     in_proj = proj.Proj(init='EPSG:4326')
     out_proj = proj.Proj(init='EPSG:{}'.format(EPSG))
     (station_x,station_y) = proj.transform(in_proj,out_proj,*station_coord)
-    print('original coordinates:',station_x,station_y)
-    # move coord to snap centroid to 30m grid, minimal distortion
+
+    #  this calculates nearest distance to nearest landsat 
+    # grid lines, and is used in the transform to snap to UTM 30m grid
     rx = station_x % 15
     if rx > 7.5:
         station_x += (15-rx)
-        # final coords should be odd factors of 15
         if (station_x / 15) % 2 == 0:
             station_x -= 15
     else:    
@@ -96,23 +118,21 @@ def runner(path, ed_user, ed_pass):
             station_x += 15
     ry = station_y % 15
     if ry > 7.5:
-        print('ry > 7.5')
         station_y += (15-ry )
         if (station_y / 15) % 2 == 0:
             station_y -= 15
     else:
-        print('ry <= 7.5')
         station_y -= ry
         if (station_y / 15) % 2 == 0:
             station_y += 15
-    print('adjusted coordinates:',station_x,station_y)
-    #Other model parameters
+    
+    #Other model parameters modify if needed
     h_s = 2000. #Height of atmos. boundary layer [m] - assumed
     dx = 30. #Model resolution [m]
     origin_d = 300. #Model bounds distance from origin [m]
-    #modify if needed
     start_hr = 6 # hours from 1 to 24
     end_hr = 18
+    
     hours_zero_indexed = np.arange(start_hr-1,end_hr)
     hours_one_indexed = np.arange(start_hr,end_hr+1)
     n_hrs = len(hours_zero_indexed) 
@@ -121,7 +141,7 @@ def runner(path, ed_user, ed_pass):
     if not nldas_out_dir.is_dir():
         nldas_out_dir.mkdir(parents=True, exist_ok=True)
 
-    out_dir = Path('All_output')/'AMF'/f'{station}'
+    out_dir = Path('output')/'daily'/f'{station}'
 
     if not out_dir.is_dir():
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -221,7 +241,7 @@ def runner(path, ed_user, ed_pass):
             if nldas_outf_path.is_file():
                 print(f'{nldas_outf_path} already exists, not overwriting.')
                 pass
-                # do not overwrite!
+
             else:
                 data_url = f'https://hydro1.gesdisc.eosdis.nasa.gov/data/NLDAS/NLDAS_FORA0125_H.002/{YYYY}/{DOY:03}/NLDAS_FORA0125_H.A{YYYY}{MM:02}{DD:02}.{HH:02}00.002.grb'
                 session = requests.Session()
@@ -315,16 +335,20 @@ def runner(path, ed_user, ed_pass):
             i+=1
         # after removing hours now calculate hourly proportions
         nldas_df.loc[nldas_df.index.date == date, 'ETo_hr_props'] = min_max_normed_ETo / min_max_normed_ETo.sum()
+        day_slice = nldas_df.loc[nldas_df.index.date == date]
+        prop_col_indx=day_slice.columns.get_loc('ETo_hr_props')
         # weight normed hourly fetch rasters by hourly ETo proportions
-        for i,hour in enumerate(hours_zero_indexed): # everything here is hours 0-23
-            normed_fetch_rasters[i] =                normed_fetch_rasters[i]*nldas_df.loc[
-                    (nldas_df.index.date == date) & (nldas_df.index.hour == hour), 'ETo_hr_props'
-            ].values[0]
+        for i,hour in enumerate(range(n_hrs)): # everything here is hours 0-23 - used to be n_hrs constant
+            normed_fetch_rasters[i] =\
+                normed_fetch_rasters[i]*day_slice.iloc[i, prop_col_indx]
         # save hourly proportions to time series file
         nldas_df.round(4).to_csv(nldas_ts_outf)
 
         # Last calculation, sum the weighted hourly rasters to a single daily fetch raster
         final_footprint = sum(normed_fetch_rasters)
+        if pd.isna(final_footprint.sum()):
+            print(f'Final Foorptint sum is nan!: {date}, {station}')
+            continue
         assert np.isclose(final_footprint.sum(), 1), f'check 1 failed! {final_footprint.sum()}\n{temp_line}'
         # next check
         for hour, raster in enumerate(normed_fetch_rasters):
@@ -332,9 +356,9 @@ def runner(path, ed_user, ed_pass):
                 nldas_df.loc[
                     (nldas_df.index.date == date) & (nldas_df.index.hour == hour+start_hr-1), 'ETo_hr_props'
                 ].values[0], raster.sum()
-            ), f'check 2 failed for hour {hour+start_hr-1}!!!'
+            ), f'check 2 failed for hour {hour+start_hr-1}!'
 
-        # finally, write daily corrected raster with UTM zone reference 
+        # finally, write daily weighted raster with UTM zone reference 
         corr_raster_path = final_outf
         out_raster = rasterio.open(
             corr_raster_path,'w',driver='GTiff',dtype=rasterio.float64,
@@ -345,6 +369,18 @@ def runner(path, ed_user, ed_pass):
         out_raster.close()
         
 
-# run all sites in parallel
-pool = mp.Pool(processes=8)
-pool.map(runner,hourly_files)
+
+if __name__ == '__main__':
+
+	# read metadata that has each sites' elevation used in ETr/ETo calcs
+	meta_path = Path('path/to/site_metadata_CSV_with_elevation')
+	meta = pd.read_csv(meta_path, index_col='SITE_ID')
+	# specify path with input CSV files for each station with 
+	# input time series of needed data, e.g. zm, ustar, L,...
+	in_dir = Path('dir/with/input')
+	input_files = list(in_dir.glob('*.csv'))
+
+	# run all sites in parallel using half available processors
+	nproc = mp.cpu_count() // 2
+	pool = mp.Pool(processes=nproc)
+	pool.map(runner,input_files)

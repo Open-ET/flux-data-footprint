@@ -1,4 +1,7 @@
 #
+AMF_query.csv
+
+#
 *.xlsx
 *~
 celery_out/*.png
