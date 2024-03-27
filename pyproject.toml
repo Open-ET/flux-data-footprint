@@ -26,10 +26,14 @@ license = "MIT"
 
 [tool.poetry.dependencies]
 python = ">=3.7"
-# Add any additional dependencies here, for example:
 numpy = ">=1.20.0"
 matplotlib = ">=2.0"
 scipy = ">=1.0"
+pandas = ">=2.0"
+xarray = ">=3.0"
+pyproj = ">=3.0"
+rasterio = ">=1.0"
+refet = ">=0.3"
 
 [tool.poetry.dev-dependencies]
 pytest = ">=6.2.2"
