@@ -1,55 +1,47 @@
-import numpy as np
-# import sys
-#import numbers
-# from numpy import ma
-# import matplotlib._cntr as cntr
-from matplotlib.pyplot import contour
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-from matplotlib.colors import LogNorm
+from calc_footprint_FFP_climatology import *
 
 def FFP(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
-        wind_dir=None, rs=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8), rslayer=0,
-        nx=1000, crop=False, fig=False):
+        wind_dir=None, rs=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8], rslayer=0,
+        nx=1000, crop=False, fig=False, **kwargs):
     """
     Derive a flux footprint estimate based on the simple parameterisation FFP
-    See Kljun, N., P. Calanca, M.W. Rotach, H.P. Schmid, 2015: 
+    See Kljun, N., P. Calanca, M.W. Rotach, H.P. Schmid, 2015:
     The simple two-dimensional parameterisation for Flux Footprint Predictions FFP.
     Geosci. Model Dev. 8, 3695-3713, doi:10.5194/gmd-8-3695-2015, for details.
-    contact: n.kljun@swansea.ac.uk
+    contact: natascha.kljun@cec.lu.se
 
     FFP Input
     zm     = Measurement height above displacement height (i.e. z-d) [m]
-    z0     = Roughness length [m]; enter None if not known 
-    umean  = Mean wind speed at zm [m/s]; enter None if not known 
+    z0     = Roughness length [m]; enter None if not known
+    umean  = Mean wind speed at zm [m/s]; enter None if not known
              Either z0 or umean is required. If both are given,
              z0 is selected to calculate the footprint
     h      = Boundary layer height [m]
     ol     = Obukhov length [m]
     sigmav = standard deviation of lateral velocity fluctuations [ms-1]
-    ustar  = friction velocity [ms-1]
+	ustar  = friction velocity [ms-1]
 
     optional inputs:
-    wind_dir = wind direction in degrees (of 360) for rotation of the footprint    
-    rs       = Percentage of source area for which to provide contours, must be between 10% and 90%. 
+    wind_dir = wind direction in degrees (of 360) for rotation of the footprint
+    rs       = Percentage of source area for which to provide contours, must be between 10% and 90%.
                Can be either a single value (e.g., "80") or a list of values (e.g., "[10, 20, 30]")
-               Expressed either in percentages ("80") or as fractions of 1 ("0.8"). 
+               Expressed either in percentages ("80") or as fractions of 1 ("0.8").
                Default is [10:10:80]. Set to "None" for no output of percentages
     nx       = Integer scalar defining the number of grid elements of the scaled footprint.
                Large nx results in higher spatial resolution and higher computing time.
                Default is 1000, nx must be >=600.
     rslayer  = Calculate footprint even if zm within roughness sublayer: set rslayer = 1
-               Note that this only gives a rough estimate of the footprint as the model is not 
+               Note that this only gives a rough estimate of the footprint as the model is not
                valid within the roughness sublayer. Default is 0 (i.e. no footprint for within RS).
                z0 is needed for estimation of the RS.
     crop     = Crop output area to size of the 80% footprint or the largest r given if crop=1
-    fig      = Plot an example figure of the resulting footprint (on the screen): set fig = 1. 
-               Default is 0 (i.e. no figure). 
- 
+    fig      = Plot an example figure of the resulting footprint (on the screen): set fig = 1.
+               Default is 0 (i.e. no figure).
+
     FFP output
     x_ci_max = x location of footprint peak (distance from measurement) [m]
     x_ci	 = x array of crosswind integrated footprint [m]
-    f_ci	 = array with footprint function values of crosswind integrated footprint [m-1] 
+    f_ci	 = array with footprint function values of crosswind integrated footprint [m-1]
     x_2d	 = x-grid of 2-dimensional footprint [m], rotated if wind_dir is provided
     y_2d	 = y-grid of 2-dimensional footprint [m], rotated if wind_dir is provided
     f_2d	 = footprint function values of 2-dimensional footprint [m-2]
@@ -61,75 +53,68 @@ def FFP(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
 
     created: 15 April 2015 natascha kljun
     translated to python, December 2015 Gerardo Fratini, LI-COR Biosciences Inc.
-    version: 1.3
-    last change: 08/12/2017 natascha kljun
-    Copyright (C) 2015,2016,2017,2018 Natascha Kljun
+    version: 1.42
+    last change: 11/12/2019 Gerardo Fratini, ported to Python 3.x
+    Copyright (C) 2015 - 2023 Natascha Kljun
     """
+
+    import numpy as np
+    import sys
+    import numbers
+
     # ===========================================================================
-    # Input check
+    # Get kwargs
+    show_heatmap = kwargs.get('show_heatmap', True)
+
+    # ===========================================================================
+    ## Input check
     flag_err = 0
 
-    # Check existence of required input pars
+    ## Check existence of required input pars
     if None in [zm, h, ol, sigmav, ustar] or (z0 is None and umean is None):
         raise_ffp_exception(1)
 
     # Define rslayer if not passed
-    if rslayer is None:
-        rslayer = 0
+    if rslayer == None: rslayer == 0
 
     # Define crop if not passed
-    if crop is None:
-        crop = 0
+    if crop == None: crop == 0
 
     # Define fig if not passed
-    if fig is None:
-        fig = 0
+    if fig == None: fig == 0
 
     # Check passed values
-    if zm <= 0.:
-        raise_ffp_exception(2)
-    if z0 is not None and umean is None and z0 <= 0.:
-        raise_ffp_exception(3)
-    if h <= 10.:
-        raise_ffp_exception(4)
-    if zm > h:
-        raise_ffp_exception(5)
+    if zm <= 0.: raise_ffp_exception(2)
+    if z0 is not None and umean is None and z0 <= 0.: raise_ffp_exception(3)
+    if h <= 10.: raise_ffp_exception(4)
+    if zm > h: raise_ffp_exception(5)
     if z0 is not None and umean is None and zm <= 12.5 * z0:
-        if rslayer == 1:
+        if rslayer is 1:
             raise_ffp_exception(6)
         else:
             raise_ffp_exception(12)
-    if float(zm) / ol <= -15.5:
-        raise_ffp_exception(7)
-    if sigmav <= 0:
-        raise_ffp_exception(8)
-    if ustar <= 0.1:
-        raise_ffp_exception(9)
+    if float(zm) / ol <= -15.5: raise_ffp_exception(7)
+    if sigmav <= 0: raise_ffp_exception(8)
+    if ustar <= 0.1: raise_ffp_exception(9)
     if wind_dir is not None:
-        if wind_dir > 360 or wind_dir < 0:
-            raise_ffp_exception(10)
-    if nx < 600:
-        raise_ffp_exception(11)
+        if wind_dir > 360 or wind_dir < 0: raise_ffp_exception(10)
+    if nx < 600: raise_ffp_exception(11)
 
     # Resolve ambiguity if both z0 and umean are passed (defaults to using z0)
-    if None not in [z0, umean]:
-        raise_ffp_exception(13)
+    if None not in [z0, umean]: raise_ffp_exception(13)
 
     # ===========================================================================
     # Handle rs
     if rs is not None:
 
         # Check that rs is a list, otherwise make it a list
-        if isinstance(rs,(float,int)):
-            if 0.9 < rs <= 1 or 90 < rs <= 100:
-                rs = 0.9
+        if isinstance(rs, numbers.Number):
+            if 0.9 < rs <= 1 or 90 < rs <= 100: rs = 0.9
             rs = [rs]
-        if not isinstance(rs, list):
-            raise_ffp_exception(14)
+        if not isinstance(rs, list): raise_ffp_exception(14)
 
         # If rs is passed as percentages, normalize to fractions of one
-        if np.max(rs) >= 1:
-            rs = [x / 100. for x in rs]
+        if np.max(rs) >= 1: rs = [x / 100. for x in rs]
 
         # Eliminate any values beyond 0.9 (90%) and inform user
         if np.max(rs) > 0.9:
@@ -158,7 +143,7 @@ def FFP(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
     xstar_ci_param = np.linspace(d, xstar_end, nx + 2)
     xstar_ci_param = xstar_ci_param[1:]
 
-    # Crosswind integrated scaled F* 
+    # Crosswind integrated scaled F*
     fstar_ci_param = a * (xstar_ci_param - d) ** b * np.exp(-c / (xstar_ci_param - d))
     ind_notnan = ~np.isnan(fstar_ci_param)
     fstar_ci_param = fstar_ci_param[ind_notnan]
@@ -174,7 +159,7 @@ def FFP(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
         if ol <= 0 or ol >= oln:
             xx = (1 - 19.0 * zm / ol) ** 0.25
             psi_f = np.log((1 + xx ** 2) / 2.) + 2. * np.log((1 + xx) / 2.) - 2. * np.arctan(xx) + np.pi / 2
-        else: #if 0 < ol < oln:
+        elif ol > 0 and ol < oln:
             psi_f = -5.3 * zm / ol
 
         x = xstar_ci_param * zm / (1. - (zm / h)) * (np.log(zm / z0) - psi_f)
@@ -182,16 +167,16 @@ def FFP(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
             x_ci = x
             f_ci = fstar_ci_param / zm * (1. - (zm / h)) / (np.log(zm / z0) - psi_f)
         else:
-            x_ci_max, x_ci, f_ci, x_2d, y_2d, f_2d = [None]*6
+            x_ci_max, x_ci, f_ci, x_2d, y_2d, f_2d = None
             flag_err = 1
     else:
         # Use umean if z0 not available
         x = xstar_ci_param * zm / (1. - zm / h) * (umean / ustar * k)
-        if 0 < (umean / ustar):
+        if umean / ustar > 0:
             x_ci = x
             f_ci = fstar_ci_param / zm * (1. - zm / h) / (umean / ustar * k)
         else:
-            x_ci_max, x_ci, f_ci, x_2d, y_2d, f_2d = [None]*6
+            x_ci_max, x_ci, f_ci, x_2d, y_2d, f_2d = None
             flag_err = 1
 
     # Maximum location of influence (peak location)
@@ -206,7 +191,7 @@ def FFP(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
         ol = -1E6
     if ol <= 0:  # convective
         scale_const = 1E-5 * abs(zm / ol) ** (-1) + 0.80
-    else:  # stable ol > 0
+    elif ol > 0:  # stable
         scale_const = 1E-5 * abs(zm / ol) ** (-1) + 0.55
     if scale_const > 1:
         scale_const = 1.0
@@ -237,13 +222,11 @@ def FFP(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
     # Derive footprint ellipsoid incorporating R% of the flux, if requested,
     # starting at peak value.
     dy = dx
-    xrs = []
-    yrs = []
-    frs = None
     if rs is not None:
         clevs = get_contour_levels(f_2d, dx, dy, rs)
         frs = [item[2] for item in clevs]
-
+        xrs = []
+        yrs = []
         for ix, fr in enumerate(frs):
             xr, yr = get_contour_vertices(x_2d, y_2d, f_2d, fr)
             if xr is None:
@@ -254,6 +237,8 @@ def FFP(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
         if crop:
             rs_dummy = 0.8  # crop to 80%
             clevs = get_contour_levels(f_2d, dx, dy, rs_dummy)
+            xrs = []
+            yrs = []
             xrs, yrs = get_contour_vertices(x_2d, y_2d, f_2d, clevs[0][2])
 
     # ===========================================================================
@@ -306,7 +291,7 @@ def FFP(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
     # Plot footprint
     if fig:
         fig_out, ax = plot_footprint(x_2d=x_2d, y_2d=y_2d, fs=f_2d,
-                                     show_footprint=True, clevs=frs)
+                                     show_heatmap=show_heatmap, clevs=frs)
 
     # ===========================================================================
     # Fill output structure
@@ -319,125 +304,23 @@ def FFP(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
                 'x_2d': x_2d, 'y_2d': y_2d, 'f_2d': f_2d, 'flag_err': flag_err}
 
 
-# ===============================================================================
-# ===============================================================================
-def get_contour_levels(f, dx, dy, rs=None):
-    """
-    Get contour levels based on input parameters.
-
-    Parameters:
-        f (array-like): Input array of values.
-        dx (float): Grid spacing along x-axis.
-        dy (float): Grid spacing along y-axis.
-        rs (int, float, list, optional): Contour levels to be computed. If not provided, default levels will be used.
-
-    Returns:
-        list: A list of tuples containing contour level, accumulated area, and percentile of each contour level.
-
-    Example:
-        f = [[0.5, 0.2, 0.7],
-             [0.9, 0.1, 0.4],
-             [0.3, 0.6, 0.8]]
-        dx = 1.0
-        dy = 1.0
-        get_contour_levels(f, dx, dy, rs=[0.2, 0.5])
-
-        Output:
-        [(0.2, 0.2, 0.2), (0.5, 0.8, 0.4)]
-    """
-
-    # Check input and resolve to default levels in needed
-    if not isinstance(rs, (int, float, list)):
-        rs = list(np.linspace(0.10, 0.90, 9))
-    if isinstance(rs, (int, float)):
-        rs = [rs]
-
-    # Levels
-    pclevs = np.empty(len(rs))
-    pclevs[:] = np.nan
-    ars = np.empty(len(rs))
-    ars[:] = np.nan
-
-    sf = np.sort(f, axis=None)[::-1]
-    msf = np.ma.masked_array(sf, mask=(np.isnan(sf) | np.isinf(sf)))  # Masked array for handling potential nan
-
-    csf = msf.cumsum().filled(np.nan) * dx * dy
-    for ix, r in enumerate(rs):
-        dcsf = np.abs(csf - r)
-        pclevs[ix] = sf[np.nanargmin(dcsf)]
-        ars[ix] = csf[np.nanargmin(dcsf)]
-
-    return [(round(r, 3), ar, pclev) for r, ar, pclev in zip(rs, ars, pclevs)]
-
-
-# ===============================================================================
-def get_contour_vertices(x, y, f, lev):
-    """
-    Get Contour Vertices
-
-    This function calculates the contour vertices based on the provided parameters.
-
-    Parameters:
-    - x (numeric): X coordinates of the grid points.
-    - y (numeric): Y coordinates of the grid points.
-    - f (numeric): Values of the grid points.
-    - lev (numeric): Contour level value.
-
-    Returns:
-    - List[List[numeric]]: List containing the X and Y coordinates of the contour points.
-
-    Example Usage:
-        x = [0, 1, 2, 3]
-        y = [0, 1, 2, 3]
-        f = [[1, 2, 3, 4],
-             [5, 6, 7, 8],
-             [9, 10, 11, 12],
-             [13, 14, 15, 16]]
-        lev = 10
-
-        vertices = get_contour_vertices(x, y, f, lev)
-        print(vertices)  # Output: [[0, 1, 2, 3], [2, 2, 2, 2]]
-    """
-    c = contour(x, y, f)
-    nlist = c.trace(lev, lev, 0)
-    segs = nlist[:len(nlist) // 2]
-    N = len(segs[0][:, 0])
-    xr = [segs[0][ix, 0] for ix in range(N)]
-    yr = [segs[0][ix, 1] for ix in range(N)]
-
-    return [xr, yr]  # x,y coords of contour points.
-
-
-# ===============================================================================
-def plot_footprint(x_2d, y_2d, fs, clevs=None, show_footprint=True, normalize=None,
+def plot_footprint(x_2d, y_2d, fs, clevs=None, show_heatmap=True, normalize=None,
                    colormap=None, line_width=0.5, iso_labels=None):
-    """
-    Plots the footprint of a given set of 2D footprints.
+    '''Plot footprint function and contours if request'''
 
-    Parameters:
-    - x_2d (numpy.ndarray): 2D array of x-coordinates for grid points
-    - y_2d (numpy.ndarray): 2D array of y-coordinates for grid points
-    - fs (List[numpy.ndarray]): List of 2D footprints to be plotted
-    - clevs (List[float], optional): List of contour levels for the footprints. Default is None.
-    - show_footprint (bool, optional): Determines whether to show the footprint as a heatmap. Default is True.
-    - normalize (str, optional): Determines the normalization method for the heatmap. Default is None.
-    - colormap (matplotlib.colors.LinearSegmentedColormap, optional): Colormap for the contours and heatmap. Default is None.
-    - line_width (float, optional): Width of contour lines. Default is 0.5.
-    - iso_labels (List[int], optional): List of labels for isopleth levels. Default is None.
-
-    Returns:
-    - Tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]: Tuple containing the figure and axes objects for the plot.
-    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.cm as cm
+    from matplotlib.colors import LogNorm
 
     # If input is a list of footprints, don't show footprint but only contours,
     # with different colors
     if isinstance(fs, list):
-        show_footprint = False
+        show_heatmap = False
     else:
         fs = [fs]
 
-    if colormap is None:
-        colormap = cm.jet
+    if colormap is None: colormap = cm.jet
     # Define colors for each contour set
     cs = [colormap(ix) for ix in np.linspace(0, 1, len(fs))]
 
@@ -459,8 +342,8 @@ def plot_footprint(x_2d, y_2d, fs, clevs=None, show_footprint=True, normalize=No
         levs = [clev for clev in clevs]
         for f, c in zip(fs, cs):
             cc = [c] * len(levs)
-            if show_footprint:
-                cp = ax.contour(x_2d, y_2d, f, levs, colors='r', linewidths=line_width)
+            if show_heatmap:
+                cp = ax.contour(x_2d, y_2d, f, levs, colors='w', linewidths=line_width)
             else:
                 cp = ax.contour(x_2d, y_2d, f, levs, colors=cc, linewidths=line_width)
             # Isopleth Labels
@@ -472,7 +355,7 @@ def plot_footprint(x_2d, y_2d, fs, clevs=None, show_footprint=True, normalize=No
                 plt.clabel(cp, cp.levels[:], inline=1, fmt=fmt, fontsize=7)
 
     # plot footprint heatmap if requested and if only one footprint is passed
-    if show_footprint:
+    if show_heatmap:
         if normalize == 'log':
             norm = LogNorm()
         else:
@@ -480,11 +363,11 @@ def plot_footprint(x_2d, y_2d, fs, clevs=None, show_footprint=True, normalize=No
 
         for f in fs:
             pcol = plt.pcolormesh(x_2d, y_2d, f, cmap=colormap, norm=norm)
-            cbar = fig.colorbar(pcol, shrink=1.0, format='%.3e')
         plt.xlabel('x [m]')
         plt.ylabel('y [m]')
         plt.gca().set_aspect('equal', 'box')
 
+        cbar = fig.colorbar(pcol, shrink=1.0, format='%.3e')
         # cbar.set_label('Flux contribution', color = 'k')
     plt.show()
 
@@ -504,52 +387,67 @@ exceptions = [
      'msg': 'At least one required parameter is missing. Please enter all '
             'required inputs. Check documentation for details.'},
     {'code': 2,
-     'type': exTypes['fatal'],
+     'type': exTypes['error'],
      'msg': 'zm (measurement height) must be larger than zero.'},
     {'code': 3,
-     'type': exTypes['fatal'],
+     'type': exTypes['error'],
      'msg': 'z0 (roughness length) must be larger than zero.'},
     {'code': 4,
-     'type': exTypes['fatal'],
-     'msg': 'h (BPL height) must be larger than 10m.'},
+     'type': exTypes['error'],
+     'msg': 'h (BPL height) must be larger than 10 m.'},
     {'code': 5,
-     'type': exTypes['fatal'],
+     'type': exTypes['error'],
      'msg': 'zm (measurement height) must be smaller than h (PBL height).'},
     {'code': 6,
      'type': exTypes['alert'],
-     'msg': 'zm (measurement height) should be above the roughness sub-layer (12.5*z0).'},
+     'msg': 'zm (measurement height) should be above roughness sub-layer (12.5*z0).'},
     {'code': 7,
-     'type': exTypes['fatal'],
-     'msg': 'zm/ol (measurement height to Obukhov length ratio) must be equal or larger than -15.5'},
+     'type': exTypes['error'],
+     'msg': 'zm/ol (measurement height to Obukhov length ratio) must be equal or larger than -15.5.'},
     {'code': 8,
-     'type': exTypes['fatal'],
-     'msg': 'sigmav (standard deviation of crosswind) must be larger than zero'},
+     'type': exTypes['error'],
+     'msg': 'sigmav (standard deviation of crosswind) must be larger than zero.'},
     {'code': 9,
      'type': exTypes['error'],
      'msg': 'ustar (friction velocity) must be >=0.1.'},
     {'code': 10,
-     'type': exTypes['fatal'],
+     'type': exTypes['error'],
      'msg': 'wind_dir (wind direction) must be >=0 and <=360.'},
     {'code': 11,
-     'type': exTypes['error'],
-     'msg': 'nx must be >=600.'},
+     'type': exTypes['fatal'],
+     'msg': 'Passed data arrays (ustar, zm, h, ol) don\'t all have the same length.'},
     {'code': 12,
-     'type': exTypes['alert'],
-     'msg': 'Using z0, ignoring umean.'},
+     'type': exTypes['fatal'],
+     'msg': 'No valid zm (measurement height above displacement height) passed.'},
     {'code': 13,
-     'type': exTypes['error'],
-     'msg': 'zm (measurement height) must be above roughness sub-layer (12.5*z0).'},
+     'type': exTypes['alert'],
+     'msg': 'Using z0, ignoring umean if passed.'},
     {'code': 14,
+     'type': exTypes['alert'],
+     'msg': 'No valid z0 passed, using umean.'},
+    {'code': 15,
+     'type': exTypes['fatal'],
+     'msg': 'No valid z0 or umean array passed.'},
+    {'code': 16,
+     'type': exTypes['error'],
+     'msg': 'At least one required input is invalid. Skipping current footprint.'},
+    {'code': 17,
+     'type': exTypes['alert'],
+     'msg': 'Only one value of zm passed. Using it for all footprints.'},
+    {'code': 18,
      'type': exTypes['fatal'],
      'msg': 'if provided, rs must be in the form of a number or a list of numbers.'},
-    {'code': 15,
+    {'code': 19,
      'type': exTypes['alert'],
      'msg': 'rs value(s) larger than 90% were found and eliminated.'},
+    {'code': 20,
+     'type': exTypes['error'],
+     'msg': 'zm (measurement height) must be above roughness sub-layer (12.5*z0).'},
 ]
 
 
 def raise_ffp_exception(code):
-    """Raise exception or prints message according to specified code"""
+    '''Raise exception or prints message according to specified code'''
 
     ex = [it for it in exceptions if it['code'] == code][0]
     string = ex['type'] + '(' + str(ex['code']).zfill(4) + '):\n ' + ex['msg']
