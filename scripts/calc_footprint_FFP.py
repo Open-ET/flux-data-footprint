@@ -4,7 +4,9 @@ import numpy as np
 # from numpy import ma
 # import matplotlib._cntr as cntr
 from matplotlib.pyplot import contour
-
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+from matplotlib.colors import LogNorm
 
 def FFP(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
         wind_dir=None, rs=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8), rslayer=0,
@@ -320,7 +322,29 @@ def FFP(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
 # ===============================================================================
 # ===============================================================================
 def get_contour_levels(f, dx, dy, rs=None):
-    """Contour levels of f at percentages of f-integral given by rs"""
+    """
+    Get contour levels based on input parameters.
+
+    Parameters:
+        f (array-like): Input array of values.
+        dx (float): Grid spacing along x-axis.
+        dy (float): Grid spacing along y-axis.
+        rs (int, float, list, optional): Contour levels to be computed. If not provided, default levels will be used.
+
+    Returns:
+        list: A list of tuples containing contour level, accumulated area, and percentile of each contour level.
+
+    Example:
+        f = [[0.5, 0.2, 0.7],
+             [0.9, 0.1, 0.4],
+             [0.3, 0.6, 0.8]]
+        dx = 1.0
+        dy = 1.0
+        get_contour_levels(f, dx, dy, rs=[0.2, 0.5])
+
+        Output:
+        [(0.2, 0.2, 0.2), (0.5, 0.8, 0.4)]
+    """
 
     # Check input and resolve to default levels in needed
     if not isinstance(rs, (int, float, list)):
@@ -348,6 +372,32 @@ def get_contour_levels(f, dx, dy, rs=None):
 
 # ===============================================================================
 def get_contour_vertices(x, y, f, lev):
+    """
+    Get Contour Vertices
+
+    This function calculates the contour vertices based on the provided parameters.
+
+    Parameters:
+    - x (numeric): X coordinates of the grid points.
+    - y (numeric): Y coordinates of the grid points.
+    - f (numeric): Values of the grid points.
+    - lev (numeric): Contour level value.
+
+    Returns:
+    - List[List[numeric]]: List containing the X and Y coordinates of the contour points.
+
+    Example Usage:
+        x = [0, 1, 2, 3]
+        y = [0, 1, 2, 3]
+        f = [[1, 2, 3, 4],
+             [5, 6, 7, 8],
+             [9, 10, 11, 12],
+             [13, 14, 15, 16]]
+        lev = 10
+
+        vertices = get_contour_vertices(x, y, f, lev)
+        print(vertices)  # Output: [[0, 1, 2, 3], [2, 2, 2, 2]]
+    """
     c = contour(x, y, f)
     nlist = c.trace(lev, lev, 0)
     segs = nlist[:len(nlist) // 2]
@@ -361,12 +411,23 @@ def get_contour_vertices(x, y, f, lev):
 # ===============================================================================
 def plot_footprint(x_2d, y_2d, fs, clevs=None, show_footprint=True, normalize=None,
                    colormap=None, line_width=0.5, iso_labels=None):
-    """Plot footprint function and contours if request"""
+    """
+    Plots the footprint of a given set of 2D footprints.
 
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import matplotlib.cm as cm
-    from matplotlib.colors import LogNorm
+    Parameters:
+    - x_2d (numpy.ndarray): 2D array of x-coordinates for grid points
+    - y_2d (numpy.ndarray): 2D array of y-coordinates for grid points
+    - fs (List[numpy.ndarray]): List of 2D footprints to be plotted
+    - clevs (List[float], optional): List of contour levels for the footprints. Default is None.
+    - show_footprint (bool, optional): Determines whether to show the footprint as a heatmap. Default is True.
+    - normalize (str, optional): Determines the normalization method for the heatmap. Default is None.
+    - colormap (matplotlib.colors.LinearSegmentedColormap, optional): Colormap for the contours and heatmap. Default is None.
+    - line_width (float, optional): Width of contour lines. Default is 0.5.
+    - iso_labels (List[int], optional): List of labels for isopleth levels. Default is None.
+
+    Returns:
+    - Tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]: Tuple containing the figure and axes objects for the plot.
+    """
 
     # If input is a list of footprints, don't show footprint but only contours,
     # with different colors
@@ -375,7 +436,8 @@ def plot_footprint(x_2d, y_2d, fs, clevs=None, show_footprint=True, normalize=No
     else:
         fs = [fs]
 
-    if colormap is None: colormap = cm.jet
+    if colormap is None:
+        colormap = cm.jet
     # Define colors for each contour set
     cs = [colormap(ix) for ix in np.linspace(0, 1, len(fs))]
 
