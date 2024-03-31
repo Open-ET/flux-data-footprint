@@ -1,8 +1,10 @@
+from __future__ import annotations
 import numpy as np
 from scipy import signal as sg
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from matplotlib.colors import LogNorm
+
 
 
 def ffp_climatology(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
@@ -157,7 +159,7 @@ def ffp_climatology(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, 
     if rs is not None:
 
         # Check that rs is a list, otherwise make it a list
-        if isinstance(rs, (float | int)):
+        if isinstance(rs, float) or isinstance(rs, int):
             if 0.9 < rs <= 1 or 90 < rs <= 100:
                 rs = 0.9
             rs = [rs]
@@ -178,11 +180,11 @@ def ffp_climatology(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, 
 
     # Define computational domain
     # Check passed values and make some smart assumptions
-    if isinstance(dx, (float | int)) and dy is None:
+    if isinstance(dx, float) or isinstance(dx, int) and dy is None:
         dy = dx
-    if isinstance(dy, (float | int)) and dx is None:
+    if isinstance(dy, float) or isinstance(dy, int) and dx is None:
         dx = dy
-    if not all(isinstance(item, (float | int)) for item in [dx, dy]):
+    if not all(isinstance(item, float) for item in [dx, dy]) or not all(isinstance(item, int) for item in [dx, dy]):
         dx = dy = None
     if isinstance(nx, int) and ny is None:
         ny = nx
