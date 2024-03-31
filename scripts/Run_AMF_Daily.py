@@ -179,7 +179,7 @@ def runner(path, ed_user, ed_pass):
                 if u_mean is not None: z0 = None
 
                 #Calculate footprint
-                temp_ffp = ffp.FFP_climatology(
+                temp_ffp = ffp.ffp_climatology(
                     domain=[-origin_d,origin_d,-origin_d,origin_d],dx=dx,dy=dx,
                     zm=zm, h=h_s, rs=None, z0=z0, ol=temp_line['L'].values,
                     sigmav=temp_line['sigma_v'].values,

@@ -16,9 +16,31 @@ import datetime as dt
 import scipy
 
 def date_parse(yr,doy,hr):
-    '''
-    Standard date parser (pd.read_csv) for flux table outputs
-    '''
+    """
+
+    This method `date_parse` is used to parse a given date, represented by year (yr), day of year (doy), and hour (hr) into a datetime object.
+
+    Parameters:
+    - yr (str): The year of the date in string format.
+    - doy (str): The day of year of the date in string format.
+    - hr (str): The hour of the date in string format.
+
+    Returns:
+    - pd.datetime: The parsed datetime object representing the given date.
+
+    Example usage:
+    ```python
+    yr = '2022'
+    doy = '123'
+    hr = '100'
+
+    parsed_date = date_parse(yr, doy, hr)
+    ```
+
+    Note:
+    - If the hour (hr) parameter is equal to '2400', it will be converted to '000' before parsing the date.
+
+    """
     
     if '2400' in hr:
         hr = '000'
@@ -27,9 +49,21 @@ def date_parse(yr,doy,hr):
         return pd.datetime.strptime(f'{yr}{int(doy):03}{int(hr):04}', '%Y%j%H%M')
     
 def date_parse_sigv_17(doy,hr):
-    '''
-    Sigv date parser (pd.read_csv) for 2017
-    '''
+    """
+    Parses a date and time in the format specified by SIGV-17.
+
+    Parameters:
+    - doy (str): The day of the year in three digits (e.g., '001' for January 1st).
+    - hr (str): The hour and minute in four digits (e.g., '1530' for 3:30 PM).
+
+    Returns:
+    - datetime.datetime: A datetime object representing the parsed date and time.
+
+    Note:
+    - If '2400' is provided as the value for hr, it will be treated as '000' for the next day.
+    - The date is set to the year 2017 for every parsed datetime object.
+    - The format string used for parsing is '%Y%j%H%M', which represents the year (4 digits), day of the year (3 digits), hour (2 digits), and minute (2 digits).
+    """
     yr='2017'
     if '2400' in hr:
         hr = '000'
@@ -39,9 +73,23 @@ def date_parse_sigv_17(doy,hr):
 
 
 def date_parse_sigv_18(doy,hr):
-    '''
-    Sigv date parser (pd.read_csv) for 2018
-    '''
+    """
+    Parses a date in the format 'doy' (day of year) + 'hr' (hour) into a `datetime` object.
+
+    Parameters:
+    - doy (str or int): The day of the year as a string or integer.
+    - hr (str): The hour in the format 'hh'.
+
+    Returns:
+    - datetime: The parsed datetime object.
+
+    Example Usage:
+    >>> date_parse_sigv_18(365, '23')
+    datetime.datetime(2018, 12, 31, 23, 0)
+
+    >>> date_parse_sigv_18('001', '2400')
+    datetime.datetime(2019, 1, 2, 0, 0)
+    """
     yr='2018'
     if '2400' in hr:
         hr = '000'
@@ -50,16 +98,21 @@ def date_parse_sigv_18(doy,hr):
         return pd.datetime.strptime(f'{yr}{doy}{int(hr):04}', '%Y%j%H%M')
     
 def mask_fp_cutoff(f_array,cutoff=.9):
-    '''
-    Masks all values outside of the cutoff value
-    
-    Args:
-        f_array (float) : 2D numpy array of point footprint contribution values (no units)
-        cutoff (float) : Cutoff value for the cumulative sum of footprint values 
-    
+    """
+    Masks the elements of the input array based on the cumulative sum of its sorted values.
+
+    Parameters:
+    f_array (np.ndarray): Input array of floating-point numbers.
+    cutoff (float, optional): Cutoff value for the cumulative sum. Defaults to 0.9.
+
     Returns:
-        f_array (float) : 2D numpy array of footprint values, with nan == 0
-    '''
+    np.ndarray: Array with masked values.
+
+    Example:
+    >>> f_array = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
+    >>> mask_fp_cutoff(f_array)
+    array([0., 0., 0., 0., 0.])
+    """
     val_array = f_array.flatten()
     sort_df = pd.DataFrame({'f':val_array}).sort_values(by='f').iloc[::-1]
     sort_df['cumsum_f'] = sort_df['f'].cumsum()
@@ -73,16 +126,18 @@ def mask_fp_cutoff(f_array,cutoff=.9):
     return f_array
 
 def find_transform(xs,ys):
-    '''
-    Returns the affine transform for 2d arrays xs and ys
-    
-    Args:
-        xs (float) : 2D numpy array of x-coordinates
-        ys (float) : 2D numpy array of y-coordinates
-        
+    """
+
+    Find the affine transform between two sets of points.
+
+    Parameters:
+    - xs (ndarray): The x-coordinates of the input points.
+    - ys (ndarray): The y-coordinates of the input points.
+
     Returns:
-        aff_transform : affine.Affine object  
-    '''
+    - aff_transform (Affine): The calculated affine transform between the input points.
+
+    """
     
     shape = xs.shape
 
@@ -101,20 +156,21 @@ def find_transform(xs,ys):
 
     
 def weight_raster(x_2d, y_2d, f_2d, flux_raster):
-    '''
-    Create kd tree to look up closest landsat points for each element of the footprint
-    NOTE: currently looks to closest non-nan value due to impervious masking, will need
-    to update if using more complicated RS model
-    
-    Args:
-        x_2d (float) :
-        y_2d (float) : 
-        f_2d (float) : 
-        flux_raster (float) :
-    
+    """
+    Calculates the weighted sum of values in a raster based on the provided x, y coordinates and footprint values.
+
+    Parameters:
+    - x_2d: 2D array-like. The x-coordinates of the raster.
+    - y_2d: 2D array-like. The y-coordinates of the raster.
+    - f_2d: 2D array-like. The footprint values of the raster.
+    - flux_raster: 2D array-like. The raster containing the values to be weighted.
+
     Returns:
-    
-    '''
+    - The weighted sum of values in the flux_raster.
+
+    Note: This method uses a KD tree to find the closest points in the raster to the provided coordinates.
+
+    """
 
     
     #Flatten arrays and create kd tress from x,y points
