@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
+import matplotlib
 from matplotlib.colors import LogNorm
 from scipy import signal
 
@@ -9,14 +9,14 @@ from scipy import signal
 class FFPCalc:
     def __init__(
         self,
-        zms=None,
-        z0s=None,
-        umeans=None,
-        hs=None,
-        ols=None,
-        sigmavs=None,
-        ustars=None,
-        wind_dirs=None,
+        zm=None,
+        z0=None,
+        umean=None,
+        h=None,
+        ol=None,
+        sigmav=None,
+        ustar=None,
+        wind_dir=None,
         rs=None,
         rslayer=None,
         domain=None,
@@ -43,14 +43,14 @@ class FFPCalc:
             wind_dir (float): Wind direction.
             rs (list, optional): Source strength values. Defaults to a range from 0.1 to 0.8.
         """
-        self.zms = zms
-        self.z0s = z0s
-        self.umeans = umeans
-        self.hs = hs
-        self.ols = ols
-        self.sigmavs = sigmavs
-        self.ustars = ustars
-        self.wind_dirs = wind_dirs
+        self.zms = zm
+        self.z0s = z0
+        self.umeans = umean
+        self.hs = h
+        self.ols = ol
+        self.sigmavs = sigmav
+        self.ustars = ustar
+        self.wind_dirs = wind_dir
         self.rs = rs if rs is not None else [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
         self.frs = None
         self.rslayer = rslayer if rslayer is not None else 0
@@ -423,6 +423,21 @@ class FFPCalc:
         self.fclim_2d = np.zeros(self.x_2d.shape)
 
     def real_scaledxst(self, ix, z0, ol, zm, h, umean, ustar):
+        """
+        Calculates the real scale crosswind integrated footprint and fills in the dummy arrays for the rotated scaled footprint.
+
+        Parameters:
+        - ix (int): Index of the current iteration.
+        - z0 (float): Surface roughness length.
+        - ol (float): Obukhov length.
+        - zm (float): Momentum roughness length.
+        - h (float): Atmospheric boundary layer height.
+        - umean (float): Mean wind speed.
+        - ustar (float): Friction velocity.
+
+        Returns:
+        None
+        """
         # ===========================================================================
         # Create real scale crosswind integrated footprint and dummy for
         # rotated scaled footprint
@@ -639,7 +654,7 @@ class FFPCalc:
         # import matplotlib._contour as cntr
 
         cs = plt.contour(x, y, f, [lev])
-        p = cs.collections[0].get_paths()[0]
+        p = cs.get_paths()[0]
         v = p.vertices
         xr = v[:, 0]
         yr = v[:, 1]
@@ -771,7 +786,7 @@ class FFPCalc:
             fs = [fs]
 
         if colormap is None:
-            colormap = cm.get_cmap("jet")
+            colormap = matplotlib.colormaps["jet"]
         # Define colors for each contour set
         cs = [colormap(ix) for ix in np.linspace(0, 1, len(fs))]
 
@@ -976,6 +991,8 @@ class FFPCalc:
         # Normalize and smooth footprint climatology
 
         if self.smooth_data is not None:
-            skernel = np.matrix("0.05 0.1 0.05; 0.1 0.4 0.1; 0.05 0.1 0.05")
+            skernel = np.array([[0.05, 0.1, 0.05],
+                                [0.1, 0.4, 0.1],
+                                [0.05, 0.1, 0.05]])
             self.fclim_2d = signal.convolve2d(self.fclim_2d, skernel, mode="same")
             self.fclim_2d = signal.convolve2d(self.fclim_2d, skernel, mode="same")
