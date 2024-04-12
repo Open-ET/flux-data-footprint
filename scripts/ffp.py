@@ -1,9 +1,8 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.colors import LogNorm
 from scipy import signal
-
 
 
 class FFPCalc:
@@ -326,7 +325,8 @@ class FFPCalc:
 
         # Check existence of required input pars
         if None in [self.zms, self.hs, self.ols, self.sigmavs, self.ustars] or (
-            self.z0s is None and self.umeans is None):
+            self.z0s is None and self.umeans is None
+        ):
             self.raise_ffp_exception(1)
 
         # Convert all input items to lists
@@ -352,7 +352,10 @@ class FFPCalc:
         if self.ts_len > 20:
             self.pulse = int(self.ts_len / 20)
 
-        if any(len(lst) != self.ts_len for lst in [self.sigmavs, self.wind_dirs, self.hs, self.ols]):
+        if any(
+            len(lst) != self.ts_len
+            for lst in [self.sigmavs, self.wind_dirs, self.hs, self.ols]
+        ):
             # at least one list has a different length, exit with error message
             self.raise_ffp_exception(11)
 
@@ -379,7 +382,6 @@ class FFPCalc:
             self.z0s = [None] * self.ts_len
         else:
             self.raise_ffp_exception(15)
-
 
     def handle_rs(self):
         # ===========================================================================
@@ -418,7 +420,9 @@ class FFPCalc:
         # Set theta such that North is pointing upwards and angles increase clockwise
         self.rho = np.sqrt(self.x_2d**2 + self.y_2d**2)
         self.theta = np.arctan2(self.x_2d, self.y_2d)
-        self.rotated_theta = self.theta #added for if valid is none before real_scaledxst
+        self.rotated_theta = (
+            self.theta
+        )  # added for if valid is none before real_scaledxst
         # initialize raster for footprint climatology
         self.fclim_2d = np.zeros(self.x_2d.shape)
 
@@ -451,12 +455,21 @@ class FFPCalc:
             # Use z0
             else:
                 xx = (1 - 19.0 * zm / ol) ** 0.25
-                self.psi_f = (np.log((1 + xx**2) / 2.0) + 2.0 * np.log((1 + xx) / 2.0) - 2.0 * np.arctan(xx) + np.pi / 2)
+                self.psi_f = (
+                    np.log((1 + xx**2) / 2.0)
+                    + 2.0 * np.log((1 + xx) / 2.0)
+                    - 2.0 * np.arctan(xx)
+                    + np.pi / 2
+                )
 
             if (np.log(zm / z0) - self.psi_f) > 0:
                 self.xstar_ci_dummy = (
-                    self.rho * np.cos(self.rotated_theta)
-                    / zm * (1.0 - (zm / h)) / (np.log(zm / z0) - self.psi_f))
+                    self.rho
+                    * np.cos(self.rotated_theta)
+                    / zm
+                    * (1.0 - (zm / h))
+                    / (np.log(zm / z0) - self.psi_f)
+                )
                 self.px = np.where(self.xstar_ci_dummy > self.model_params["d"])
                 self.fstar_ci_dummy[self.px] = (
                     self.model_params["a"]
@@ -464,10 +477,7 @@ class FFPCalc:
                     ** self.model_params["b"]
                     * np.exp(
                         -self.model_params["c"]
-                        / (
-                            self.xstar_ci_dummy[self.px]
-                            - self.model_params["d"]
-                        )
+                        / (self.xstar_ci_dummy[self.px] - self.model_params["d"])
                     )
                 )
                 self.f_ci_dummy[self.px] = (
@@ -569,6 +579,51 @@ class FFPCalc:
     @staticmethod
     def get_contour_levels(f, dx, dy, rs=None):
         """
+        Calculate the contour levels of a given 2D numpy array based on specified spacing dx, dy,
+        and optional contour ratios rs. If rs is not provided, default levels are used.
+
+        Parameters:
+            - f (numpy.ndarray): 2D array of values for which contours are calculated.
+            - dx (float): Spacing along the x-axis.
+            - dy (float): Spacing along the y-axis.
+            - rs (int | float | List[float], optional): Desired contour ratios.
+
+        Returns:
+            - List[Tuple[float, float, float]]: List of tuples with each tuple containing:
+                - Contour ratio (rounded to 3 decimal places).
+                - Accumulated area up to that contour ratio.
+                - Corresponding contour level value.
+        """
+
+        if rs is None or not isinstance(rs, (int, float, list)):
+            rs = np.linspace(0.10, 0.90, 9)  # Default ratios
+        elif isinstance(rs, (int, float)):
+            rs = [rs]
+
+        # Flatten the array and sort descending
+        sorted_flatten = np.sort(f.ravel())[::-1]
+        cumulative_area = np.cumsum(sorted_flatten) * dx * dy
+
+        # Normalize ratios to total area if necessary
+        total_area = cumulative_area[-1]
+        target_areas = np.array(rs) * total_area
+        indices = np.searchsorted(cumulative_area, target_areas, side="left")
+
+        # Clip indices to handle edge cases where searchsorted returns an index equal to array length
+        indices = np.clip(indices, 0, len(sorted_flatten) - 1)
+
+        # Values at the indices of the calculated levels
+        levels = sorted_flatten[indices]
+        areas = cumulative_area[indices]
+
+        return [
+            (round(r, 3), float(area), float(level))
+            for r, area, level in zip(rs, areas, levels)
+        ]
+
+    @staticmethod
+    def get_contour_levels_old(f, dx, dy, rs=None):
+        """
         This method, get_contour_levels, calculates the contour levels of a given array, f, based on specified parameters.
 
         Parameters:
@@ -594,8 +649,6 @@ class FFPCalc:
         Output:
             [(0.1, 0.09999999999999998, 9), (0.5, 5.000000000000001, 5), (0.9, 8.899999999999999, 1)]
         """
-
-        import sys
 
         # Check input and resolve to default levels in needed
         if not isinstance(rs, (int, float, list)):
@@ -687,7 +740,7 @@ class FFPCalc:
         # ===========================================================================
         # Derive footprint ellipsoid incorporating R% of the flux, if requested,
         # starting at peak value.
-        #self.dy = self.dx
+        # self.dy = self.dx
         if self.rs is not None:
             clevs = self.get_contour_levels(self.f_2d, self.dx, self.dy, self.rs)
             self.frs = [item[2] for item in clevs]
@@ -701,12 +754,66 @@ class FFPCalc:
         else:
             if self.crop:
                 rs_dummy = 0.8  # crop to 80%
-                clevs = self.get_contour_levels(self.fclim_2d, self.dx, self.dy, rs_dummy)
-                #self.xrs = []
-                #self.yrs = []
+                clevs = self.get_contour_levels(
+                    self.fclim_2d, self.dx, self.dy, rs_dummy
+                )
+                # self.xrs = []
+                # self.yrs = []
                 self.xrs, self.yrs = self.get_contour_vertices(
                     self.x_2d, self.y_2d, self.f_2d, clevs[0][2]
                 )
+
+    def crop_footprint_ellips(self):
+        # Crop domain and footprint to the largest rs value
+        if self.crop:
+            # Use direct reference to the last or full list without None filtering if your data structure allows
+            if self.rs is not None:
+                xrs_crop = self.xrs[-1]
+                yrs_crop = self.yrs[-1]
+            else:
+                xrs_crop = self.xrs
+                yrs_crop = self.yrs
+
+            # Calculate bounds using vectorized operations
+            dminx, dmaxx = np.floor(np.min(xrs_crop)), np.ceil(np.max(xrs_crop))
+            dminy, dmaxy = np.floor(np.min(yrs_crop)), np.ceil(np.max(yrs_crop))
+
+            # Calculate jrange and irange based on the computed bounds
+            if dminy >= self.ymin and dmaxy <= self.ymax:
+                jrange = np.where(
+                    (self.y_2d[:, 0] >= dminy) & (self.y_2d[:, 0] <= dmaxy)
+                )[0]
+                jrange = np.clip(
+                    np.arange(
+                        max(jrange[0] - 1, 0),
+                        min(jrange[-1] + 2, self.y_2d.shape[0]),
+                    ),
+                    0,
+                    self.y_2d.shape[0] - 1,
+                )
+            else:
+                jrange = np.linspace(0, 1, self.y_2d.shape[0] - 1, dtype=int)
+
+            if dminx >= self.xmin and dmaxx <= self.xmax:
+                irange = np.where(
+                    (self.x_2d[0, :] >= dminx) & (self.x_2d[0, :] <= dmaxx)
+                )[0]
+                irange = np.clip(
+                    np.arange(
+                        max(irange[0] - 1, 0),
+                        min(irange[-1] + 2, self.x_2d.shape[1]),
+                    ),
+                    0,
+                    self.x_2d.shape[1] - 1,
+                )
+            else:
+                irange = np.linspace(0, 1, self.x_2d.shape[1] - 1, dtype=int)
+
+            # Use advanced indexing to slice arrays
+            self.x_2d = self.x_2d[np.ix_(jrange, irange)]
+            self.y_2d = self.y_2d[np.ix_(jrange, irange)]
+            self.f_2d = self.f_2d[np.ix_(jrange, irange)]
+            self.fclim_2d = self.fclim_2d[np.ix_(jrange, irange)]
 
     def crop_footprint_ellipsoid(self):
         # ===========================================================================
@@ -727,16 +834,24 @@ class FFPCalc:
                 dmaxy = np.ceil(max(yrs_crop))
 
             if dminy >= self.ymin and dmaxy <= self.ymax:
-                jrange = np.where((self.y_2d[:, 0] >= dminy) & (self.y_2d[:, 0] <= dmaxy))[0]
+                jrange = np.where(
+                    (self.y_2d[:, 0] >= dminy) & (self.y_2d[:, 0] <= dmaxy)
+                )[0]
                 jrange = np.concatenate(([jrange[0] - 1], jrange, [jrange[-1] + 1]))
-                jrange = jrange[np.where((jrange >= 0) & (jrange <= self.y_2d.shape[0]))[0]]
+                jrange = jrange[
+                    np.where((jrange >= 0) & (jrange <= self.y_2d.shape[0]))[0]
+                ]
             else:
                 jrange = np.linspace(0, 1, self.y_2d.shape[0] - 1)
 
             if dminx >= self.xmin and dmaxx <= self.xmax:
-                irange = np.where((self.x_2d[0, :] >= dminx) & (self.x_2d[0, :] <= dmaxx))[0]
+                irange = np.where(
+                    (self.x_2d[0, :] >= dminx) & (self.x_2d[0, :] <= dmaxx)
+                )[0]
                 irange = np.concatenate(([irange[0] - 1], irange, [irange[-1] + 1]))
-                irange = irange[np.where((irange >= 0) & (irange <= self.x_2d.shape[1]))[0]]
+                irange = irange[
+                    np.where((irange >= 0) & (irange <= self.x_2d.shape[1]))[0]
+                ]
             else:
                 irange = np.linspace(0, 1, self.x_2d.shape[1] - 1)
 
@@ -850,7 +965,7 @@ class FFPCalc:
             plt.ylabel("y [m]")
 
             # cbar.set_label('Flux contribution', color = 'k')
-        plt.show()
+        # plt.show()
 
         return fig, ax
 
@@ -867,7 +982,16 @@ class FFPCalc:
             )
         ]
 
-        for ix, (ustar, sigmav, h, ol, wind_dir, zm, z0, umean,) in enumerate(
+        for ix, (
+            ustar,
+            sigmav,
+            h,
+            ol,
+            wind_dir,
+            zm,
+            z0,
+            umean,
+        ) in enumerate(
             zip(
                 self.ustars,
                 self.sigmavs,
@@ -884,7 +1008,9 @@ class FFPCalc:
             if ix % self.pulse == 0:
                 print("Calculating footprint ", ix + 1, " of ", self.ts_len)
 
-            self.valids[ix] = self.check_ffp_inputs(zm, z0, h, ol, ustar, sigmav, umean, wind_dir)
+            self.valids[ix] = self.check_ffp_inputs(
+                zm, z0, h, ol, ustar, sigmav, umean, wind_dir
+            )
 
             # If inputs are not valid, skip current footprint
             if not self.valids[ix]:
@@ -916,18 +1042,14 @@ class FFPCalc:
                 ol = -1e6
             if ol <= 0:  # convective
                 scale_const = 1e-5 * abs(zm / ol) ** (-1) + 0.80
-            else: #if ol > 0:  # stable
+            else:  # if ol > 0:  # stable
                 scale_const = 1e-5 * abs(zm / ol) ** (-1) + 0.55
             if scale_const > 1:
                 scale_const = 1.0
 
             sigy_dummy = np.zeros(self.x_2d.shape)
             sigy_dummy[self.px] = (
-                sigystar_dummy[self.px]
-                / scale_const
-                * zm
-                * sigmav
-                / ustar
+                sigystar_dummy[self.px] / scale_const * zm * sigmav / ustar
             )
             sigy_dummy[sigy_dummy < 0] = np.nan
 
@@ -962,10 +1084,11 @@ class FFPCalc:
             self.fclim_2d = self.fclim_2d / n
             self.normalize_and_smooth_footprint()
             self.derive_footprint_ellipsoid()
-            self.crop_footprint_ellipsoid()
+            self.crop_footprint_ellips()
 
             # ===========================================================================
             # Plot footprint
+
             if self.fig:
                 fig_out, ax = self.plot_footprint(
                     x_2d=self.x_2d,
@@ -974,6 +1097,7 @@ class FFPCalc:
                     show_heatmap=self.show_heatmap,
                     clevs=self.frs,
                 )
+                self.output["fig"] = fig_out
         self.output["x_2d"] = self.x_2d
         self.output["y_2d"] = self.y_2d
         self.output["fclim_2d"] = self.fclim_2d
@@ -991,8 +1115,6 @@ class FFPCalc:
         # Normalize and smooth footprint climatology
 
         if self.smooth_data is not None:
-            skernel = np.array([[0.05, 0.1, 0.05],
-                                [0.1, 0.4, 0.1],
-                                [0.05, 0.1, 0.05]])
+            skernel = np.array([[0.05, 0.1, 0.05], [0.1, 0.4, 0.1], [0.05, 0.1, 0.05]])
             self.fclim_2d = signal.convolve2d(self.fclim_2d, skernel, mode="same")
             self.fclim_2d = signal.convolve2d(self.fclim_2d, skernel, mode="same")

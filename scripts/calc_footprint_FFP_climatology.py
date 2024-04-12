@@ -104,6 +104,7 @@ def ffp_climatology(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, 
     if None in [zm, h, ol, sigmav, ustar] or (z0 is None and umean is None):
         raise_ffp_exception(1, verbosity)
 
+
     # Convert all input items to lists
     if not isinstance(zm, list):
         zm = [zm]
