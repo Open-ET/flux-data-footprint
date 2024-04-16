@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 from matplotlib.colors import LogNorm
 from scipy import signal as sg
@@ -283,7 +283,7 @@ class ffp_climatology:
             self.raise_ffp_exception(12, self.verbosity)
         if len(zm) == 1:
             self.raise_ffp_exception(17, self.verbosity)
-            zm = [zm[0] for i in range(self.ts_len)]
+            zm = zm * self.ts_len
 
         # Resolve ambiguity if both z0 and umean are passed (defaults to using z0)
         # If at least one value of z0 is passed, use z0 (by setting umean to None)
@@ -789,7 +789,7 @@ class ffp_climatology:
             else:
                 self.raise_ffp_exception(20, self.verbosity)
                 return False
-        if float(zm) / ol <= -15.5:
+        if all([np.float64(i) / ol <= -15.5 for i in zm]):
             self.raise_ffp_exception(7, self.verbosity)
             return False
         if sigmav <= 0:
@@ -892,8 +892,11 @@ class ffp_climatology:
         # import matplotlib._contour as cntr
 
         cs = plt.contour(x, y, f, [lev])
-        p = cs.collections[0].get_paths()[0]
-        v = p.vertices
+        levels, paths = [], []
+        for level, path in zip(cs.levels, cs.get_paths()):
+            levels.append(level)
+            paths.append(path)
+        v = paths[0].vertices
         xr = v[:, 0]
         yr = v[:, 1]
         plt.close()
@@ -946,7 +949,8 @@ class ffp_climatology:
             fs = [fs]
 
         if colormap is None:
-            colormap = cm.get_cmap("jet")
+            #colormap = cm.get_cmap("jet")
+            colormap = matplotlib.colormaps["jet"]
         # Define colors for each contour set
         cs = [colormap(ix) for ix in np.linspace(0, 1, len(fs))]
 
