@@ -1,4 +1,4 @@
-import calc_footprint_FFP_climatology as myfootprint_s
+
 import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
@@ -15,6 +15,7 @@ import traceback
 import os
 import datetime as dt
 import refet
+import utm
 import pynldas2 as nldas
 import scipy
 

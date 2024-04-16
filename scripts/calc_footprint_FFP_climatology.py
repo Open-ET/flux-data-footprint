@@ -328,7 +328,7 @@ def ffp_climatology(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, 
                 else:
                     xx = (1 - 19.0 * zm / ol) ** 0.25
                     psi_f = (np.log((1 + xx ** 2) / 2.) + 2. * np.log((1 + xx) / 2.) - 2. * np.arctan(xx) + np.pi / 2)
-
+            #Break HERE
                 if (np.log(zm / z0) - psi_f) > 0:
                     xstar_ci_dummy = (rho * np.cos(rotated_theta) / zm * (1. - (zm / h)) / (np.log(zm / z0) - psi_f))
                     px = np.where(xstar_ci_dummy > d)
@@ -373,7 +373,7 @@ def ffp_climatology(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, 
             # ===========================================================================
             # Add to footprint climatology raster
             fclim_2d = fclim_2d + f_2d
-
+    # Break HERE
     # ===========================================================================
     # Continue if at least one valid footprint was calculated
     n = sum(valids)
