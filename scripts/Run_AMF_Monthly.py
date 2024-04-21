@@ -152,7 +152,7 @@ def runner(path, ed_user, ed_pass):
     if not nldas_out_dir.is_dir():
         nldas_out_dir.mkdir(parents=True, exist_ok=True)
 
-    out_dir = Path('output')/'monthly'/f'{station}'
+    out_dir = Path('../example notebooks/using_fluxdataqaqc_with_AMF/output') / 'monthly' / f'{station}'
     if not out_dir.is_dir():
         out_dir.mkdir(parents=True, exist_ok=True)
 

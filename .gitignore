@@ -7,7 +7,7 @@ AMF_query.csv
 celery_out/*.png
 celery_animation
 **/*out/*
-**/output/*
+example notebooks/using_fluxdataqaqc_with_AMF/output/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
