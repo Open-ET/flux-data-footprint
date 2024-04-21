@@ -120,7 +120,7 @@ class ffp_climatology:
         # Define crop if not passed
         self.crop = 0 if crop is None else crop
         # Define fig if not passed
-        self.fig = 0 if fig is None else fig
+        self.fig = False if fig is None else fig
         self.verbosity = 1 if verbosity is None else verbosity
         self.pulse = None if pulse is None else pulse
         # ===========================================================================
@@ -221,12 +221,13 @@ class ffp_climatology:
         self.output["xr"] = xrs
         self.output["yr"] = yrs
         if fig_out is None:
-            pass
+            self.output["fig"],self.output["ax"] = plt.subplots(1,1)
         else:
             self.output["fig"] = fig_out
             self.output["ax"] = ax
         # output["n"] = n
         self.output["flag_err"] = self.flag_err
+
 
 
     def input_check(self, zm, h, ol, sigmav, ustar, z0, umean, wind_dir):
@@ -294,7 +295,7 @@ class ffp_climatology:
             if len(z0) == 1:
                 z0 = [z0[0] for i in range(self.ts_len)]
         elif len(umean) == self.ts_len and not all(val is None for val in umean):
-            self.aise_ffp_exception(14, self.verbosity)
+            self.raise_ffp_exception(14, self.verbosity)
             z0 = [None for i in range(self.ts_len)]
         else:
             self.raise_ffp_exception(15, self.verbosity)
@@ -366,17 +367,15 @@ class ffp_climatology:
         """
         # Define computational domain
         # Check passed values and make some smart assumptions
-        if isinstance(dx, float) or isinstance(dx, int) and dy is None:
+        if isinstance(dx, (float,int)) and dy is None:
             dy = dx
-        if isinstance(dy, float) or isinstance(dy, int) and dx is None:
+        if isinstance(dy, (float,int)) and dx is None:
             dx = dy
-        if not all(isinstance(item, float) for item in [dx, dy]) or not all(
-                isinstance(item, int) for item in [dx, dy]
-        ):
+        if not all(isinstance(item, (float,int)) for item in [dx, dy] for item in [dx, dy]):
             dx = dy = None
         if isinstance(nx, int) and ny is None:
             ny = nx
-        if not (not isinstance(ny, int) or not (nx is None)):
+        if isinstance(ny, int) and nx is None:
             nx = ny
         if not all(isinstance(item, int) for item in [nx, ny]):
             nx = ny = None
@@ -385,9 +384,9 @@ class ffp_climatology:
 
         if all(item is None for item in [dx, nx, domain]):
             # If nothing is passed, default domain is a square of 2 Km size centered
-            # at the tower with pizel size of 2 meters (hence a 1000x1000 grid)
-            domain = [-1000.0, 1000.0, -1000.0, 1000.0]
-            dx = dy = 2.0
+            # at the tower with pixel size of 2 meters (hence a 1000x1000 grid)
+            domain = [-1000., 1000., -1000., 1000.]
+            dx = dy = 2.
             nx = ny = 1000
         elif domain is not None:
             # If domain is passed, it takes the precendence over anything else
@@ -553,76 +552,42 @@ class ffp_climatology:
 
                 psi_f, scale_const = 0, 1
                 if z0 is not None:
-                    if 0 < ol < self.oln:  # ol > 0 and ol < oln:
-                        psi_f = -5.3 * zm / ol
-                    # Use z0
-                    else:
+                    if ol <= 0 or ol >= self.oln:
                         xx = (1 - 19.0 * zm / ol) ** 0.25
-                        psi_f = (
-                                np.log((1 + xx ** 2) / 2.0)
-                                + 2.0 * np.log((1 + xx) / 2.0)
-                                - 2.0 * np.arctan(xx)
-                                + np.pi / 2)
-
+                        psi_f = (np.log((1 + xx ** 2) / 2.) + 2. * np.log((1 + xx) / 2.) - 2. * np.arctan(
+                            xx) + np.pi / 2)
+                    elif ol > 0 and ol < self.oln:
+                        psi_f = -5.3 * zm / ol
+                        # print(psi_f, zm, ol)
                     if (np.log(zm / z0) - psi_f) > 0:
                         xstar_ci_dummy = (
-                                rho
-                                * np.cos(rotated_theta)
-                                / zm
-                                * (1.0 - (zm / h))
-                                / (np.log(zm / z0) - psi_f))
+                                    rho * np.cos(rotated_theta) / zm * (1. - (zm / h)) / (np.log(zm / z0) - psi_f))
+
                         px = np.where(xstar_ci_dummy > self.d)
-                        fstar_ci_dummy[px] = (
-                                self.a
-                                * (xstar_ci_dummy[px] - self.d) ** self.b
-                                * np.exp(-self.c / (xstar_ci_dummy[px] - self.d))
-                        )
-                        f_ci_dummy[px] = (
-                                fstar_ci_dummy[px]
-                                / zm
-                                * (1.0 - (zm / h))
-                                / (np.log(zm / z0) - psi_f)
-                        )
+                        fstar_ci_dummy[px] = self.a * (xstar_ci_dummy[px] - self.d)**self.b * np.exp(-self.c / (xstar_ci_dummy[px] - self.d))
+                        f_ci_dummy[px] = (fstar_ci_dummy[px] / zm * (1. - (zm / h)) / (np.log(zm / z0) - psi_f))
                     else:
                         self.flag_err = 3
                         valids[ix] = 0
                 else:
                     # Use umean if z0 not available
-                    xstar_ci_dummy = (
-                            rho
-                            * np.cos(rotated_theta)
-                            / zm
-                            * (1.0 - (zm / h))
-                            / (umean / ustar * self.k)
-                    )
+                    xstar_ci_dummy = (rho * np.cos(rotated_theta) / zm * (1. - (zm / h)) / (umean / ustar * self.k))
                     px = np.where(xstar_ci_dummy > self.d)
-                    fstar_ci_dummy[px] = (
-                            self.a
-                            * (xstar_ci_dummy[px] - self.d) ** self.b
-                            * np.exp(-self.c / (xstar_ci_dummy[px] - self.d))
-                    )
-                    f_ci_dummy[px] = (
-                            fstar_ci_dummy[px]
-                            / zm
-                            * (1.0 - (zm / h))
-                            / (umean / ustar * self.k)
-                    )
+                    fstar_ci_dummy[px] = self.a * (xstar_ci_dummy[px] - self.d)**self.b * np.exp(-self.c / (xstar_ci_dummy[px] - self.d))
+                    f_ci_dummy[px] = (fstar_ci_dummy[px] / zm * (1. - (zm / h)) / (umean / ustar * self.k))
 
                 # ===========================================================================
                 # Calculate dummy for scaled sig_y* and real scale sig_y
 
-                sigystar_dummy[px] = self.ac * np.sqrt(
-                    self.bc
-                    * np.abs(xstar_ci_dummy[px]) ** 2
-                    / (1 + self.cc * np.abs(xstar_ci_dummy[px]))
-                )
+                sigystar_dummy[px] = (self.ac * np.sqrt(self.bc * np.abs(xstar_ci_dummy[px])**2 / (1 +
+                                  self.cc * np.abs(xstar_ci_dummy[px]))))
 
                 if abs(ol) > self.oln:
-                    ol = -1e6
+                    ol = -1E6
                 if ol <= 0:  # convective
-                    scale_const = 1e-5 * abs(zm / ol) ** (-1) + 0.80
+                    scale_const = 1E-5 * abs(zm / ol) ** (-1) + 0.80
                 elif ol > 0:  # stable
-                    scale_const = 1e-5 * abs(zm / ol) ** (-1) + 0.55
+                    scale_const = 1E-5 * abs(zm / ol) ** (-1) + 0.55
                 if scale_const > 1:
                     scale_const = 1.0
 
@@ -682,7 +647,7 @@ class ffp_climatology:
         frs = []
 
         if rs is not None:
-            clevs = self.get_contour_levels(fclim_2d, dx, dy, rs)
+            clevs = self.get_contour_levels_new(fclim_2d, dx, dy, rs)
             frs = [item[2] for item in clevs]
             for ix, fr in enumerate(frs):
                 xr, yr = self.get_contour_vertices(x_2d, y_2d, fclim_2d, fr)
@@ -694,7 +659,7 @@ class ffp_climatology:
         else:
             if self.crop:
                 rs_dummy = 0.8  # crop to 80%
-                clevs = self.get_contour_levels(fclim_2d, dx, dy, rs_dummy)
+                clevs = self.get_contour_levels_new(fclim_2d, dx, dy, rs_dummy)
 
                 xrs, yrs = self.get_contour_vertices(x_2d, y_2d, fclim_2d, clevs[0][2])
         return xrs, yrs, frs
@@ -741,8 +706,10 @@ class ffp_climatology:
         # Plot footprint
         if self.fig:
             fig_out, ax = self.plot_footprint(x_2d=x_2d, y_2d=y_2d, fs=fclim_2d, show_heatmap=show_heatmap, clevs=frs)
-            return fig_out, ax
 
+        else:
+            fig_out, ax = 0, 0
+        return fig_out, ax
     # ===============================================================================
     # ===============================================================================
     def check_ffp_inputs(self, ustar, sigmav, h, ol, wind_dir, zm, z0, umean, rslayer):
@@ -789,7 +756,7 @@ class ffp_climatology:
             else:
                 self.raise_ffp_exception(20, self.verbosity)
                 return False
-        if all([np.float64(i) / ol <= -15.5 for i in zm]):
+        if (float(zm)) / ol <= -15.5:
             self.raise_ffp_exception(7, self.verbosity)
             return False
         if sigmav <= 0:
@@ -861,6 +828,48 @@ class ffp_climatology:
         return [(round(r, 3), ar, pclev) for r, ar, pclev in zip(rs, ars, pclevs)]
 
     @staticmethod
+    def get_contour_levels_new(f, dx, dy, rs=None):
+        """
+        Calculate the contour levels of a given 2D numpy array based on specified spacing dx, dy,
+        and optional contour ratios rs. If rs is not provided, default levels are used.
+
+        Parameters:
+            - f (numpy.ndarray): 2D array of values for which contours are calculated.
+            - dx (float): Spacing along the x-axis.
+            - dy (float): Spacing along the y-axis.
+            - rs (int | float | List[float], optional): Desired contour ratios.
+
+        Returns:
+            - List[Tuple[float, float, float]]: List of tuples with each tuple containing:
+                - Contour ratio (rounded to 3 decimal places).
+                - Accumulated area up to that contour ratio.
+                - Corresponding contour level value.
+        """
+
+        if rs is None or not isinstance(rs, (int, float, list)):
+            rs = np.linspace(0.10, 0.90, 9)  # Default ratios
+        elif isinstance(rs, (int, float)):
+            rs = [rs]
+
+        # Flatten the array and sort descending
+        sorted_flatten = np.sort(f.ravel())[::-1]
+        cumulative_area = np.cumsum(sorted_flatten) * dx * dy
+
+        # Normalize ratios to total area if necessary
+        total_area = cumulative_area[-1]
+        target_areas = np.array(rs) * total_area
+        indices = np.searchsorted(cumulative_area, target_areas, side='left')
+
+        # Clip indices to handle edge cases where searchsorted returns an index equal to array length
+        indices = np.clip(indices, 0, len(sorted_flatten) - 1)
+
+        # Values at the indices of the calculated levels
+        levels = sorted_flatten[indices]
+        areas = cumulative_area[indices]
+
+        return [(round(r, 3), float(area), float(level)) for r, area, level in zip(rs, areas, levels)]
+
+    @staticmethod
     def get_contour_vertices(x, y, f, lev):
         """
         Get the x and y coordinates of a contour plot at a specific contour level.
@@ -902,8 +911,9 @@ class ffp_climatology:
         plt.close()
 
         # Set contour to None if it's found to reach the physical domain
-        # if x.min() >= min(segs[:, 0]) or max(segs[:, 0]) >= x.max() or \
-        #        y.min() >= min(segs[:, 1]) or max(segs[:, 1]) >= y.max():
+        if x.min() >= min(xr) or max(xr) >= x.max() or \
+                y.min() >= min(yr) or max(yr) >= y.max():
+            xr, yr = None, None
         #    return [None, None]
 
         return [xr, yr]  # x,y coords of contour points.

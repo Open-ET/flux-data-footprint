@@ -1,180 +1,75 @@
 
-import matplotlib.pyplot as plt
-import matplotlib
-import numpy as np
-import pandas as pd
-import xarray as xr
-import shapefile
-import rasterio
-import math
-import cv2
-from affine import Affine
-import pyproj
-import cartopy.crs as ccrs
-import traceback
-import os
-import datetime as dt
+
 import refet
 import utm
 import pynldas2 as nldas
 import scipy
 
+import calc_footprint_FFP_climatology as myfootprint_s
+import matplotlib.pyplot as plt
+import matplotlib
+import numpy as np
+import pandas as pd
+import xarray as xr
+#import shapefile
+import rasterio
+import cv2
+from affine import Affine
+import pyproj as proj
+#import cartopy.crs as ccrs
+import traceback
+import os
+import datetime as dt
+import scipy
 
-def grid_latlong(station_x, station_y):
-    """
-    Calculates the nearest distance to the nearest landsat grid lines.
 
-    Parameters:
-    - station_x: The x-coordinate of the station.
-    - station_y: The y-coordinate of the station.
+def date_parse(yr, doy, hr):
+    '''
+    Standard date parser (pd.read_csv) for flux table outputs
+    '''
 
-    Returns:
-    A tuple containing the nearest distances to the nearest landsat grid lines in the x and y directions.
-    """
-    #  this calculates nearest distance to nearest landsat
-    # grid lines, and is used in the transform to snap to UTM 30m grid
-    rx = station_x % 15
-    if rx > 7.5:
-        station_x += (15 - rx)
-        if (station_x / 15) % 2 == 0:
-            station_x -= 15
+    if '2400' in hr:
+        hr = '000'
+        return pd.datetime.strptime(f'{yr}{int(doy):03}{int(hr):04}', '%Y%j%H%M')
     else:
-        station_x -= rx
-        if (station_x / 15) % 2 == 0:
-            station_x += 15
-    ry = station_y % 15
-    if ry > 7.5:
-        station_y += (15 - ry)
-        if (station_y / 15) % 2 == 0:
-            station_y -= 15
+        return pd.datetime.strptime(f'{yr}{int(doy):03}{int(hr):04}', '%Y%j%H%M')
+
+
+def date_parse_sigv_17(doy, hr):
+    '''
+    Sigv date parser (pd.read_csv) for 2017
+    '''
+    yr = '2017'
+    if '2400' in hr:
+        hr = '000'
+        return pd.datetime.strptime(f'{yr}{int(doy) + 1}{int(hr):04}', '%Y%j%H%M')
     else:
-        station_y -= ry
-        if (station_y / 15) % 2 == 0:
-            station_y += 15
-    return rx, ry
+        return pd.datetime.strptime(f'{yr}{doy}{int(hr):04}', '%Y%j%H%M')
 
 
-def get_zones(latitude, longitude):
-    """
-    Get the zone based on the given longitude and latitude.
-
-    Args:
-        longitude (float): The longitude value.
-        latitude (float): The latitude value.
-
-    Returns:
-        int: The zone number.
-
-    Raises:
-        None.
-
-    Special zones for Svalbard and Norway
-    from https://gis.stackexchange.com/a/375285/17944
-
-    References:
-        - Adapted from https://gis.stackexchange.com/a/375285/17944
-
-    Example:
-        >>> get_zones(41.1,-112.1)
-        12
-
-    """
-    # Special zones for Svalbard and Norway
-    # from https://gis.stackexchange.com/a/375285/17944
-    if 72.0 <= latitude < 84.0:
-        if 0.0 <= longitude < 9.0:
-            return 31
-    if 9.0 <= longitude < 21.0:
-        return 33
-    if 21.0 <= longitude < 33.0:
-        return 35
-    if 33.0 <= longitude < 42.0:
-        return 37
-    return (math.floor((longitude + 180) / 6)) + 1
-
-
-def find_epsg(latitude, longitude):
-    """
-    Find the EPSG code for a given longitude and latitude coordinate.
-
-    Parameters:
-        longitude (float): The longitude coordinate.
-        latitude (float): The latitude coordinate.
-
-    Returns:
-        int: The EPSG code.
-
-    References:
-        - Adapted from https://gis.stackexchange.com/a/375285/17944
-
-    Examples:
-        >>> find_epsg(41.1,-111.1)
-        32612
-
-
-    """
-    # from https://gis.stackexchange.com/a/375285/17944
-    zone = get_zones(latitude, longitude)
-    # zone = (math.floor((longitude + 180) / 6) ) + 1  # without special zones for Svalbard and Norway
-    epsg_code = 32600
-    epsg_code += int(zone)
-    if latitude < 0:  # South
-        epsg_code += 100
-    return epsg_code
-
-
-def date_parse(yr, doy, hr, frmt='%Y%j%H%M'):
-    """
-    This method `date_parse` is used to parse a given date, represented by year (yr), day of year (doy), and hour (hr)
-    into a datetime object.
-
-    Parameters:
-    - yr (str): The year of the date in string format.
-    - doy (str): The day of year of the date in string format.
-    - hr (str): The hour of the date in string format.
-
-    Returns:
-    - pd.datetime: The parsed datetime object representing the given date.
-
-    Example Usage:
-    >>> date_parse(2023,34,22)
-    Timestamp('2023-02-03 22:00:00')
-
-    >>> date_parse('2017','001', '24')
-    Timestamp('2017-01-02 00:00:00')
-
-    Note:
-    - If the hour (hr) parameter is equal to '2400', it will be converted to '000' before parsing the date.
-
-    """
-    hr = int(hr)
-    if hr == 24:
-        hr = 0
-        doy = int(doy) + 1
+def date_parse_sigv_18(doy, hr):
+    '''
+    Sigv date parser (pd.read_csv) for 2018
+    '''
+    yr = '2018'
+    if '2400' in hr:
+        hr = '000'
+        return pd.datetime.strptime(f'{yr}{int(doy) + 1}{int(hr):04}', '%Y%j%H%M')
     else:
-        hr = hr
-
-    datestring = f'{yr}{int(doy):03}{int(hr):02}00'
-
-    return pd.to_datetime(datestring, format=frmt)
+        return pd.datetime.strptime(f'{yr}{doy}{int(hr):04}', '%Y%j%H%M')
 
 
 def mask_fp_cutoff(f_array, cutoff=.9):
-    """
-    Masks the elements of the input array based on the cumulative sum of its sorted values.
+    '''
+    Masks all values outside of the cutoff value
 
-    Parameters:
-    f_array (np.ndarray): Input array of floating-point numbers.
-    cutoff (float, optional): Cutoff value for the cumulative sum. Defaults to 0.9.
+    Args:
+        f_array (float) : 2D numpy array of point footprint contribution values (no units)
+        cutoff (float) : Cutoff value for the cumulative sum of footprint values
 
     Returns:
-    np.ndarray: Array with masked values.
-
-    Example:
-    >>> f_array = np.array([0.1, 0.2, 0.3, 0.4, 0.5])
-    >>> mask_fp_cutoff(f_array)
-    array([0. , 0. , 0. , 0.4, 0.5])
-    """
+        f_array (float) : 2D numpy array of footprint values, with nan == 0
+    '''
     val_array = f_array.flatten()
     sort_df = pd.DataFrame({'f': val_array}).sort_values(by='f').iloc[::-1]
     sort_df['cumsum_f'] = sort_df['f'].cumsum()
@@ -189,18 +84,16 @@ def mask_fp_cutoff(f_array, cutoff=.9):
 
 
 def find_transform(xs, ys):
-    """
+    '''
+    Returns the affine transform for 2d arrays xs and ys
 
-    Find the affine transform between two sets of points.
-
-    Parameters:
-    - xs (ndarray): The x-coordinates of the input points.
-    - ys (ndarray): The y-coordinates of the input points.
+    Args:
+        xs (float) : 2D numpy array of x-coordinates
+        ys (float) : 2D numpy array of y-coordinates
 
     Returns:
-    - aff_transform (Affine): The calculated affine transform between the input points.
-
-    """
+        aff_transform : affine.Affine object
+    '''
 
     shape = xs.shape
 
@@ -214,6 +107,8 @@ def find_transform(xs, ys):
     aff_transform = Affine(*cv2.getAffineTransform(in_xy, out_xy).flatten())
 
     return aff_transform
+
+
 
 
 def ref_et_from_nldas(date='2020-07-01 10:00', latitude=41.1, longitude=-112.1, zm=10.,
