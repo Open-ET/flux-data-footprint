@@ -1,0 +1,2 @@
+HTTP.NETRC=/root/directory/.netrc
+HTTP.COOKIEJAR=/root/directory/.urs_cookies
