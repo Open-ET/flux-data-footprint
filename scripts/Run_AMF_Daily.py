@@ -128,8 +128,8 @@ def runner(path, ed_user, ed_pass):
     
     #Other model parameters modify if needed
     h_s = 2000. #Height of atmos. boundary layer [m] - assumed
-    dx = 30. #Model resolution [m]
-    origin_d = 300. #Model bounds distance from origin [m]
+    dx = 3.        # FFP model resolution [m]; run fine, aggregate to 30m
+    origin_d = 313.5  # domain half-width [m]; 313.5 with dx=3 -> 210 nodes -> 21 Landsat-aligned 30m pixels
     start_hr = 6 # hours from 1 to 24
     end_hr = 18
     
@@ -188,9 +188,20 @@ def runner(path, ed_user, ed_pass):
                     crop=0,fig=0,verbosity=0
                 )
                 f_2d = np.array(temp_ffp['fclim_2d'])
-                x_2d = np.array(temp_ffp['x_2d']) + station_x
-                y_2d = np.array(temp_ffp['y_2d']) + station_y
-                f_2d = f_2d*dx**2
+                f_2d = f_2d * dx**2
+                # Aggregate the 3m fine grid to 30m coarse grid (10x10 block-sum).
+                # Summing (not averaging) preserves probability mass in each 30m cell.
+                BLOCK = 10       # fine pixels per coarse pixel: 3m x 10 = 30m
+                n = (f_2d.shape[0] // BLOCK) * BLOCK   # trim to exact multiple of BLOCK
+                n_coarse = n // BLOCK
+                # Reshape to (n_coarse, BLOCK, n_coarse, BLOCK) then sum the BLOCK axes
+                f_2d = f_2d[:n, :n].reshape(n_coarse, BLOCK, n_coarse, BLOCK).sum(axis=(1, 3))
+                # Coarse pixel centres = mean of the BLOCK fine-grid coords + station offset
+                x_fine   = np.array(temp_ffp['x_2d'])[0, :n]
+                y_fine   = np.array(temp_ffp['y_2d'])[:n, 0]
+                x_coarse = np.array([x_fine[i*BLOCK:(i+1)*BLOCK].mean() for i in range(n_coarse)]) + station_x
+                y_coarse = np.array([y_fine[j*BLOCK:(j+1)*BLOCK].mean() for j in range(n_coarse)]) + station_y
+                x_2d, y_2d = np.meshgrid(x_coarse, y_coarse)
 
                 #Calculate affine transform for given x_2d and y_2d
                 affine_transform = ff.find_transform(x_2d,y_2d)

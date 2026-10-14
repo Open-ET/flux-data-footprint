@@ -139,3 +139,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Large data directory (not tracked)
+footprint_data/
