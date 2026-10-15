@@ -91,11 +91,21 @@ def _return_api_key(token):
     # Obtain api token
     if not token: 
         signin_url = "https://api.giovanni.earthdata.nasa.gov/signin"
-        token = requests.get(signin_url, auth=HTTPBasicAuth(netrc.netrc().hosts['urs.earthdata.nasa.gov'][0], 
-                                                            netrc.netrc().hosts['urs.earthdata.nasa.gov'][2]),
-                             allow_redirects=True).text.replace('"','')
+        r = requests.get(signin_url, auth=HTTPBasicAuth(netrc.netrc().hosts['urs.earthdata.nasa.gov'][0], 
+                                                        netrc.netrc().hosts['urs.earthdata.nasa.gov'][2]),
+                         allow_redirects=True)
+        r.raise_for_status()
+        # the signin service used to return the token as a quoted string,
+        # it now returns JSON, e.g. {"expires_in": 86400, "token": "..."}
+        try:
+            token = r.json()
+        except ValueError:
+            token = r.text
+        if isinstance(token, dict):
+            token = token['token']
+        token = token.replace('"','')
         # print(f"API Token: {token}")
-        return token
+    return token
 
 def _call_time_series(lat,lon,time_start,time_end,data,token):
     """

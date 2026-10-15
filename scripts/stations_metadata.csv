@@ -8,3 +8,10 @@ US-Ne2,1,41.16487,-96.4701,,NE,,Croplands,6/8/01,12/31/19,AmeriFlux,p028r031,14T
 US-Snd,0,38.0373,-121.7537,,CA,,Croplands,4/5/07,12/31/14,AmeriFlux,p044r034,10S,10SFH,,,,,TRUE
 US-Sne,0,38.0369,-121.7547,,CA,,Wetlands,5/24/16,12/30/19,AmeriFlux,p044r033;p044r034,10S,10SFH,restored wetland with tules and cattails after flooding pepperweed before flooding,,,,FALSE
 US-Twt,1,38.10872,-121.6531,,CA,,Croplands,4/3/09,4/4/17,AmeriFlux,p044r033;p044r034,10S,10SFH,rice,,1,,FALSE
+US-ARM,,36.6058,-97.4888,314,OK,-6,Croplands,,,AmeriFlux,,,,,,,,
+US-MOz,,38.7441,-92.2,219.4,MO,-6,Mixed Forests,,,AmeriFlux,,,,,,,,
+US-NR1,,40.0329,-105.5464,3050,CO,-7,Evergreen Forests,,,AmeriFlux,,,,,,,,
+US-Wkg,,31.7365,-109.9419,1531,AZ,-7,Grasslands,,,AmeriFlux,,,,,,,,
+US-WCr,,45.8059,-90.0799,520,WI,-6,Mixed Forests,,,AmeriFlux,,,,,,,,
+US-SRM,,31.8214,-110.8661,1120,AZ,-7,Shrublands,,,AmeriFlux,,,,,,,,
+US-NC4,,35.7879,-75.9038,1,NC,-5,Wetlands,,,AmeriFlux,,,,,,,,

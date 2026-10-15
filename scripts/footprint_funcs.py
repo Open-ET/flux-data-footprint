@@ -76,6 +76,10 @@ def find_transform(xs,ys):
     '''
     Returns the affine transform for 2d arrays xs and ys
     
+    xs and ys are the coordinates of the grid nodes (the footprint model
+    values), which become the pixel centres. A GeoTIFF transform gives the
+    upper left corner of a pixel, so the transform is moved by half a pixel.
+
     Args:
         xs (float) : 2D numpy array of x-coordinates
         ys (float) : 2D numpy array of y-coordinates
@@ -95,6 +99,8 @@ def find_transform(xs,ys):
 
     #Calculate affine transform
     aff_transform = Affine(*cv2.getAffineTransform(in_xy,out_xy).flatten())
+    # node coordinates are pixel centres, move the origin to the pixel corner
+    aff_transform = aff_transform * Affine.translation(-0.5, -0.5)
 
     return aff_transform
         
