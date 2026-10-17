@@ -1,6 +1,42 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "flux-data-footprint"
+dynamic = ["version"]
+description = "Daily and monthly flux footprint rasters for eddy covariance towers using the Kljun et al. (2015) FFP model."
+readme = "README.rst"
+# Apache-2.0 for the package, ISC for N. Kljun's FFP model code (ffp.py)
+license = "Apache-2.0 AND ISC"
+license-files = ["LICENSE", "fluxfootprint/FFP_LICENSE.txt"]
+authors = [{name = "John Volk", email = "John.Volk@dri.edu"}]
+requires-python = ">=3.9"
+# numpy 2.4 breaks float() on 1-element arrays used in ffp.py and
+# refet 0.5 renamed calcs._actual_vapor_pressure used for NLDAS ETo
+dependencies = [
+    "affine",
+    "matplotlib>=2.0",
+    "numpy>=1.20.0,<2.4",
+    "pandas>=2.0",
+    "pyproj>=3.0",
+    "rasterio>=1.0",
+    "refet>=0.3,<0.5",
+    "requests",
+    "scipy>=1.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=6.2.2"]
+
+[project.urls]
+Homepage = "https://github.com/Open-ET/flux-data-footprint"
+
+[tool.setuptools]
+packages = ["fluxfootprint"]
+
+[tool.setuptools.dynamic]
+version = {attr = "fluxfootprint.__version__"}
 
 [tool.black]
 line-length = 88
@@ -16,28 +52,3 @@ exclude = "venv"
 [tool.mypy]
 python_version = 3.8
 strict_optional = true
-
-[tool.poetry]
-name = "flux-data-footprint"
-version = "0.1.0"
-description = "A Python library for processing data from flux footprints."
-authors = ["John Volk <John.Volk@dri.edu>"]
-license = "MIT"
-
-[tool.poetry.dependencies]
-python = ">=3.7"
-numpy = ">=1.20.0"
-matplotlib = ">=2.0"
-scipy = ">=1.0"
-pandas = ">=2.0"
-xarray = ">=3.0"
-pyproj = ">=3.0"
-rasterio = ">=1.0"
-refet = ">=0.3"
-
-[tool.poetry.dev-dependencies]
-pytest = ">=6.2.2"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"

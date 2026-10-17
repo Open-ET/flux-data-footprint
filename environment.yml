@@ -2,15 +2,17 @@ name: ffp
 channels:
   - conda-forge
 dependencies:
-  - numpy>=1.20.0
+  - python>=3.9
+  - affine
   - matplotlib>=2.0
-  - scipy>=1.0
+  - numpy>=1.20.0,<2.4
   - pandas>=2.0
-  - xarray>=3.0
   - pyproj>=3.0
   - rasterio>=1.0
-  - refet>=0.3
-  - opencv
-  - cartopy
-  - pynio
-
+  - refet>=0.3,<0.5
+  - requests
+  - scipy>=1.0
+  - pip
+  # install fluxfootprint from this folder in editable mode
+  - pip:
+      - -e .
