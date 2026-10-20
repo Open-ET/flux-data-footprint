@@ -459,19 +459,19 @@ def check_ffp_inputs(ustar, sigmav, h, ol, wind_dir, zm, z0, umean, rslayer, ver
         else:
             raise_ffp_exception(20, verbosity)
             return False
-    if (float(zm)/ol).any() <= -15.5:
+    if float(zm)/ol <= -15.5:
         raise_ffp_exception(7, verbosity)
         return False
-    if sigmav.any() <= 0:
+    if sigmav <= 0:
         raise_ffp_exception(8, verbosity)
         return False
-    if ustar.any() <= 0.1:
+    if ustar <= 0.1:
         raise_ffp_exception(9, verbosity)
         return False
-    if wind_dir.any() > 360:
+    if wind_dir > 360:
         raise_ffp_exception(10, verbosity)
         return False
-    if wind_dir.any() < 0:
+    if wind_dir < 0:
         raise_ffp_exception(10, verbosity)
         return False
     return True

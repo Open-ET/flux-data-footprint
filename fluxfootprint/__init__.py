@@ -14,4 +14,4 @@ from .ffp import ffp_climatology
 from .nldas import get_nldas2_data
 from .utils import find_transform, mask_fp_cutoff
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
