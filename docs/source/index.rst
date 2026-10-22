@@ -1,6 +1,8 @@
 flux-data-footprint
 ===================
 
+`View on GitHub <https://github.com/Open-ET/flux-data-footprint>`__
+
 Daily and monthly flux footprint rasters for eddy covariance towers using the `Kljun et al. (2015) <https://gmd.copernicus.org/articles/8/3695/2015/>`_ two-dimensional flux footprint model, with hourly footprints weighted by NLDAS-2 ASCE short reference ET (ETo).
 
 .. figure:: _static/daily_footprint_example.png
@@ -9,6 +11,10 @@ Daily and monthly flux footprint rasters for eddy covariance towers using the `K
 
    Hourly footprints are weighted by hourly NLDAS-2 ASCE short reference ET (ETo) and summed into a daily footprint on a 30 m grid aligned with Landsat (AmeriFlux site US-ARM).
 
-.. note::
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents
 
-   This documentation is under development. For installation and getting started see the `README on GitHub <https://github.com/Open-ET/flux-data-footprint>`_.
+   installation
+   getting_started
+   api
