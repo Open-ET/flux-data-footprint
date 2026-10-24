@@ -1,83 +1,118 @@
+# -*- coding: utf-8 -*-
+"""
+Kljun et al. (2015) flux footprint prediction (FFP) model.
+
+The simple two-dimensional parameterisation for Flux Footprint Predictions
+(FFP) of Kljun, N., P. Calanca, M.W. Rotach and H.P. Schmid (2015), Geosci.
+Model Dev. 8, 3695-3713, doi:10.5194/gmd-8-3695-2015. Python code by
+N. Kljun and G. Fratini (LI-COR Biosciences Inc.), version 1.4, distributed
+under the license in ``FFP_LICENSE.txt``.
+"""
 from __future__ import print_function
 def ffp_climatology(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, ustar=None,
                     wind_dir=None, domain=None, dx=None, dy=None, nx=None, ny=None, 
                     rs=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8], rslayer=0,
                     smooth_data=1, crop=False, pulse=None, verbosity=2, fig=False, **kwargs):
     """
-    Derive a flux footprint estimate based on the simple parameterisation FFP
-    See Kljun, N., P. Calanca, M.W. Rotach, H.P. Schmid, 2015:
-    The simple two-dimensional parameterisation for Flux Footprint Predictions FFP.
+    Derive a flux footprint climatology with the simple parameterisation FFP.
+
+    See Kljun, N., P. Calanca, M.W. Rotach, H.P. Schmid, 2015: The simple
+    two-dimensional parameterisation for Flux Footprint Predictions FFP.
     Geosci. Model Dev. 8, 3695-3713, doi:10.5194/gmd-8-3695-2015, for details.
-    contact: n.kljun@swansea.ac.uk
+    Contact: n.kljun@swansea.ac.uk
 
-    This function calculates footprints within a fixed physical domain for a series of
-    time steps, rotates footprints into the corresponding wind direction and aggregates
-    all footprints to a footprint climatology. The percentage of source area is
-    calculated for the footprint climatology.
-    For determining the optimal extent of the domain (large enough to include footprints)
-    use calc_footprint_FFP.py.
+    This function calculates footprints within a fixed physical domain for a
+    series of time steps, rotates footprints into the corresponding wind
+    direction and aggregates all footprints to a footprint climatology. The
+    percentage of source area is calculated for the footprint climatology.
+    For determining the optimal extent of the domain (large enough to include
+    footprints) use calc_footprint_FFP.py.
 
-    FFP Input
-        All vectors need to be of equal length (one value for each time step)
-        zm       = Measurement height above displacement height (i.e. z-d) [m]
-                   usually a scalar, but can also be a vector 
-        z0       = Roughness length [m] - enter [None] if not known 
-                   usually a scalar, but can also be a vector 
-        umean    = Vector of mean wind speed at zm [ms-1] - enter [None] if not known 
-                   Either z0 or umean is required. If both are given,
-                   z0 is selected to calculate the footprint
-        h        = Vector of boundary layer height [m]
-        ol       = Vector of Obukhov length [m]
-        sigmav   = Vector of standard deviation of lateral velocity fluctuations [ms-1]
-        ustar    = Vector of friction velocity [ms-1]
-        wind_dir = Vector of wind direction in degrees (of 360) for rotation of the footprint     
+    All vectors need to be of equal length (one value for each time step).
 
-        Optional input:
-        domain       = Domain size as an array of [xmin xmax ymin ymax] [m].
-                       Footprint will be calculated for a measurement at [0 0 zm] m
-                       Default is smallest area including the r% footprint or [-1000 1000 -1000 1000]m,
-                       whichever smallest (80% footprint if r not given).
-        dx, dy       = Cell size of domain [m]
-                       Small dx, dy results in higher spatial resolution and higher computing time
-                       Default is dx = dy = 2 m. If only dx is given, dx=dy.
-        nx, ny       = Two integer scalars defining the number of grid elements in x and y
-                       Large nx/ny result in higher spatial resolution and higher computing time
-                       Default is nx = ny = 1000. If only nx is given, nx=ny.
-                       If both dx/dy and nx/ny are given, dx/dy is given priority if the domain is also specified.
-        rs           = Percentage of source area for which to provide contours, must be between 10% and 90%. 
-                       Can be either a single value (e.g., "80") or a list of values (e.g., "[10, 20, 30]")
-                       Expressed either in percentages ("80") or as fractions of 1 ("0.8"). 
-                       Default is [10:10:80]. Set to "None" for no output of percentages
-        rslayer      = Calculate footprint even if zm within roughness sublayer: set rslayer = 1
-                       Note that this only gives a rough estimate of the footprint as the model is not 
-                       valid within the roughness sublayer. Default is 0 (i.e. no footprint for within RS).
-                       z0 is needed for estimation of the RS.
-        smooth_data  = Apply convolution filter to smooth footprint climatology if smooth_data=1 (default)
-        crop         = Crop output area to size of the 80% footprint or the largest r given if crop=1
-        pulse        = Display progress of footprint calculations every pulse-th footprint (e.g., "100")
-        verbosity    = Level of verbosity at run time: 0 = completely silent, 1 = notify only of fatal errors,
-                       2 = all notifications
-        fig          = Plot an example figure of the resulting footprint (on the screen): set fig = 1. 
-                       Default is 0 (i.e. no figure). 
+    Keyword Arguments:
+        zm (float or list): measurement height above displacement height
+            (i.e. z-d) [m]. Usually a scalar, but can also be a vector.
+        z0 (float or list): roughness length [m], enter None if not known.
+            Usually a scalar, but can also be a vector.
+        umean (float or list): mean wind speed at zm [m s-1], enter None if
+            not known. Either z0 or umean is required. If both are given, z0 is
+            selected to calculate the footprint.
+        h (float or list): boundary layer height [m].
+        ol (float or list): Obukhov length [m].
+        sigmav (float or list): standard deviation of lateral velocity
+            fluctuations [m s-1].
+        ustar (float or list): friction velocity [m s-1].
+        wind_dir (float or list): wind direction in degrees (of 360) for
+            rotation of the footprint.
+        domain (list): default None. Domain size as [xmin, xmax, ymin, ymax]
+            [m]. Footprint will be calculated for a measurement at [0 0 zm] m.
+            Default is smallest area including the r% footprint or
+            [-1000 1000 -1000 1000] m, whichever smallest (80% footprint if r
+            not given).
+        dx (float): default None. Cell size of domain in x [m]. Small dx, dy
+            results in higher spatial resolution and higher computing time.
+            Default is dx = dy = 2 m. If only dx is given, dx=dy.
+        dy (float): default None. Cell size of domain in y [m], see dx.
+        nx (int): default None. Number of grid elements in x. Large nx/ny
+            result in higher spatial resolution and higher computing time.
+            Default is nx = ny = 1000. If only nx is given, nx=ny. If both
+            dx/dy and nx/ny are given, dx/dy is given priority if the domain is
+            also specified.
+        ny (int): default None. Number of grid elements in y, see nx.
+        rs (float or list): default [0.1, 0.2, ..., 0.8]. Percentage of source
+            area for which to provide contours, must be between 10% and 90%.
+            Can be either a single value (e.g., 80) or a list of values (e.g.,
+            [10, 20, 30]), expressed either in percentages (80) or as fractions
+            of 1 (0.8). Set to None for no output of percentages.
+        rslayer (int): default 0. Calculate footprint even if zm within
+            roughness sublayer: set rslayer = 1. Note that this only gives a
+            rough estimate of the footprint as the model is not valid within
+            the roughness sublayer. Default is 0 (i.e. no footprint for within
+            RS). z0 is needed for estimation of the RS.
+        smooth_data (int): default 1. Apply convolution filter to smooth
+            footprint climatology if smooth_data=1.
+        crop (bool): default False. Crop output area to size of the 80%
+            footprint or the largest r given if crop=1.
+        pulse (int): default None. Display progress of footprint calculations
+            every pulse-th footprint (e.g., 100).
+        verbosity (int): default 2. Level of verbosity at run time:
+            0 = completely silent, 1 = notify only of fatal errors,
+            2 = all notifications.
+        fig (bool): default False. Plot an example figure of the resulting
+            footprint (on the screen): set fig = 1.
+        show_heatmap (bool): default True. Passed as a keyword argument, used
+            with ``fig`` to draw the footprint as a heat map with contours.
 
-    FFP output
-        FFP      = Structure array with footprint climatology data for measurement at [0 0 zm] m
-        x_2d	    = x-grid of 2-dimensional footprint [m]
-        y_2d	    = y-grid of 2-dimensional footprint [m]
-        fclim_2d = Normalised footprint function values of footprint climatology [m-2]
-        rs       = Percentage of footprint as in input, if provided
-        fr       = Footprint value at r, if r is provided
-        xr       = x-array for contour line of r, if r is provided
-        yr       = y-array for contour line of r, if r is provided
-        n        = Number of footprints calculated and included in footprint climatology
-        flag_err = 0 if no error, 1 in case of error, 2 if not all contour plots (rs%) within specified domain,
-                   3 if single data points had to be removed (outside validity)
+    Returns:
+        FFP (dict): footprint climatology data for a measurement at [0 0 zm] m,
+        with the keys:
 
-    Created: 19 May 2016 natascha kljun
-    Converted from matlab to python, together with Gerardo Fratini, LI-COR Biosciences Inc.
-    version: 1.4
-    last change: 11/12/2019 Gerardo Fratini, ported to Python 3.x
-    Copyright (C) 2015,2016,2017,2018,2019,2020 Natascha Kljun
+        * ``x_2d``: x-grid of 2-dimensional footprint [m]
+        * ``y_2d``: y-grid of 2-dimensional footprint [m]
+        * ``fclim_2d``: normalised footprint function values of footprint
+          climatology [m-2]
+        * ``rs``: percentage of footprint as in input, if provided
+        * ``fr``: footprint value at r, if r is provided
+        * ``xr``: x-array for contour line of r, if r is provided
+        * ``yr``: y-array for contour line of r, if r is provided
+        * ``n``: number of footprints calculated and included in footprint
+          climatology
+        * ``flag_err``: 0 if no error, 1 in case of error, 2 if not all
+          contour plots (rs%) within specified domain, 3 if single data points
+          had to be removed (outside validity)
+
+    Example:
+        >>> fp = ffp_climatology(zm=1.24, z0=0.015, h=2000., ol=213.,
+        ...                      sigmav=0.6, ustar=0.35, wind_dir=19.8,
+        ...                      domain=[-75, 75, -75, 75], dx=3., dy=3.,
+        ...                      rs=None, verbosity=0)
+
+    Note:
+        Created: 19 May 2016 natascha kljun. Converted from matlab to python,
+        together with Gerardo Fratini, LI-COR Biosciences Inc. Version 1.4,
+        last change: 11/12/2019 Gerardo Fratini, ported to Python 3.x.
+        Copyright (C) 2015, 2016, 2017, 2018, 2019, 2020 Natascha Kljun.
     """
 
     import numpy as np
@@ -441,6 +476,14 @@ def ffp_climatology(zm=None, z0=None, umean=None, h=None, ol=None, sigmav=None, 
 #===============================================================================
 def check_ffp_inputs(ustar, sigmav, h, ol, wind_dir, zm, z0, umean, rslayer, verbosity):
     # Check passed values for physical plausibility and consistency
+    """
+    Check the FFP inputs of one time step for physical plausibility.
+
+    Returns False and reports the error (see :func:`raise_ffp_exception`) if
+    an input is outside the range where the FFP parameterisation is valid,
+    e.g. zm <= 0, zm > h, zm/ol <= -15.5, sigmav <= 0, ustar <= 0.1 or a wind
+    direction outside 0 to 360 degrees, otherwise returns True.
+    """
     if zm <= 0.:
         raise_ffp_exception(2, verbosity)
         return False
@@ -509,6 +552,11 @@ def get_contour_levels(f, dx, dy, rs=None):
 #===============================================================================
 def get_contour_vertices(x, y, f, lev):
     # import matplotlib._contour as cntr
+    """
+    Get the x and y coordinates of the contour line of f at level lev.
+
+    Returns [None, None] if the contour reaches the edge of the domain.
+    """
     import matplotlib.pyplot as plt
 
     cs = plt.contour(x,y, f, [lev])

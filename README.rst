@@ -4,6 +4,11 @@ flux-data-footprint
 
 This package uses the `Kljun et al., 2015 <https://gmd.copernicus.org/articles/8/3695/2015/>`_, 2-dimensional, physically-based, flux footprint model to create daily and monthly weighted footprints from hourly time series inputs from eddy flux towers. The package also downloads hourly reference evapotranspiration (ET) drivers (temperature, radiation, vapor pressure, and wind speed) from NLDAS version 2 and computes the ASCE Standardized Penman Monteith reference ET which is used for weighting hourly footprint predictions which are subsequently averaged over daily or monthly periods.
 
+Documentation
+-------------
+
+`ReadTheDocs <https://flux-data-footprint.readthedocs.io/>`__
+
 Installation
 ------------
 
@@ -56,20 +61,20 @@ A footprint for one half hour at the Celery example site:
 
     dx = 3.0  # grid resolution [m]
     fp = ffp_climatology(
-        zm=1.24,                    # measurement height minus displacement height [m]
-        z0=np.array([0.015]),       # roughness length [m]
+        zm=1.24,         # measurement height minus displacement height [m]
+        z0=0.015,        # roughness length [m]
         umean=None,
-        h=np.array([2000.0]),       # boundary layer height [m]
-        ol=np.array([213.0]),       # Obukhov length [m]
-        sigmav=np.array([0.60]),    # standard deviation of lateral wind speed [m s-1]
-        ustar=np.array([0.35]),     # friction velocity [m s-1]
-        wind_dir=np.array([19.8]),  # wind direction [degrees from north]
+        h=2000.0,        # boundary layer height [m]
+        ol=213.0,        # Obukhov length [m]
+        sigmav=0.60,     # standard deviation of lateral wind speed [m s-1]
+        ustar=0.35,      # friction velocity [m s-1]
+        wind_dir=19.8,   # wind direction [degrees from north]
         domain=[-75, 75, -75, 75], dx=dx, dy=dx, rs=None, fig=False, verbosity=0,
     )
     f_2d = np.array(fp['fclim_2d']) * dx**2  # footprint weight per grid cell
     f_2d = mask_fp_cutoff(f_2d, cutoff=0.9)  # keep the 90% source area
 
-Pass one time step at a time with the meteorological inputs as one-element numpy arrays, as above and in the notebooks.
+See the `documentation <https://flux-data-footprint.readthedocs.io/en/latest/getting_started.html>`__ for plotting, writing a georeferenced raster, and footprints over several time steps.
 
 Examples
 ~~~~~~~~
@@ -80,11 +85,6 @@ The example Jupyter notebooks are in the ``example notebooks`` folder:
 * ``using_fluxdataqaqc_with_AMF/example with flux-data-qaqc.ipynb`` prepares AmeriFlux data with flux-data-qaqc and writes a georeferenced (UTM) GeoTIFF with one band per hour for a day.
 
 Neither example uses NLDAS reference ET to weight the footprints.
-
-Documentation
--------------
-
-Full documentation is under development and will be on `Read the Docs <https://flux-data-footprint.readthedocs.io>`__.
 
 Acknowledgements and contributions
 ----------------------------------

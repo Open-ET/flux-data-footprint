@@ -16,7 +16,7 @@ def mask_fp_cutoff(f_array,cutoff=.9):
     value where the cumulative sum is closest to ``cutoff`` becomes the
     threshold, and all smaller values are set to zero. The input should
     be footprint weights per grid cell that sum to about 1 over the
-    domain, e.g. ``fclim_2d * dx**2`` from :func:`ffp.ffp_climatology`.
+    domain, e.g. ``fclim_2d * dx**2`` from :func:`~fluxfootprint.ffp.ffp_climatology`.
 
     Arguments:
         f_array (:obj:`numpy.ndarray`): 2D array of footprint weights per
@@ -51,7 +51,7 @@ def find_transform(xs,ys):
     Get the affine transform used to write a footprint grid to a GeoTIFF.
 
     ``xs`` and ``ys`` are the projected coordinates of the footprint grid
-    nodes, e.g. ``x_2d`` and ``y_2d`` from :func:`ffp.ffp_climatology`
+    nodes, e.g. ``x_2d`` and ``y_2d`` from :func:`~fluxfootprint.ffp.ffp_climatology`
     shifted to the tower location. The nodes become pixel centres, and
     because a GeoTIFF transform gives the upper left corner of a pixel the
     transform is moved by half a pixel.

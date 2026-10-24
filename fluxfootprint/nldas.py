@@ -1,12 +1,12 @@
+# -*- coding: utf-8 -*-
 """
-giovanni api access to NLDAS2 data
+Download hourly NLDAS-2 forcing data for a point from NASA Giovanni.
 
-The program is created from the tutorial found here:
+The code is based on the NASA GES DISC tutorial notebook:
 https://github.com/nasa/gesdisc-tutorials/blob/main/notebooks/How_to_Access_GiC_Time_Series_Service.ipynb
 
-Iinformation about the giovanni cloud data access is here:
+More information about the Giovanni in the Cloud time series service:
 https://disc.gsfc.nasa.gov/information/documents?title=Giovanni%20In%20The%20Cloud:%20Time%20Series%20Service
-
 """
 
 import netrc
@@ -21,18 +21,44 @@ from pathlib import Path
 
 def get_nldas2_data(lat, lon, time_start, time_end, data, variables, out_dir, api_token):
     """
-    INPUTS:
-    lat - latitude
-    lon - longitude
-    time_start - start of time series in YYYY-MM-DDThh:mm:ss format (UTC)
-    end_time - end of the time series in YYYY-MM-DDThh:mm:ss format (UTC)
-    data - name of the data for requesting time series e.g. "NLDAS_FORA0125_H_2_0"
-    variables - name of requesting data e.g. "Rainf", "LWdown", "SWdown", "PotEvap", "PSurf", "Qair", "Tair", "Wind_E", "Wind_N"
-    out_dir - empty string will not save any file otherwise save "nldas.csv" in out_dir
-    api_token - if api_token is not passed, try to get it from the three files set in user's root direcotry see _return_api_key
-    
-    OUTPUTS:
-    df - tpandas dataframe with utc timestamp index
+    Download hourly NLDAS-2 time series for a point from NASA Giovanni.
+
+    Each variable is requested from the Giovanni time series service and the
+    variables are merged into one table. If no data comes back for a
+    variable, an ERROR message is printed and that variable is skipped.
+    Requires a NASA Earthdata login, see :func:`_return_api_key`.
+
+    Arguments:
+        lat (float): latitude of the point [decimal degrees].
+        lon (float): longitude of the point [decimal degrees].
+        time_start (str): start of the time series in UTC, as
+            'YYYY-MM-DDThh:mm:ss'.
+        time_end (str): end of the time series in UTC, as
+            'YYYY-MM-DDThh:mm:ss'.
+        data (str): name of the dataset, e.g. 'NLDAS_FORA0125_H_2_0'.
+        variables (list): variable names, e.g. 'Rainf', 'LWdown', 'SWdown',
+            'PotEvap', 'PSurf', 'Qair', 'Tair', 'Wind_E', 'Wind_N'.
+        out_dir (:obj:`pathlib.Path`): folder to save ``nldas.csv`` in, or an
+            empty string to not save a file.
+        api_token (str): Giovanni API token. If empty, a token is requested
+            with the Earthdata login in ``~/.netrc``.
+
+    Returns:
+        merged_df (:obj:`pandas.DataFrame`): hourly values with a UTC
+        timestamp index and one column per variable.
+
+    Example:
+        >>> df = get_nldas2_data(38.1, -121.5, '2017-06-15T12:00:00',
+        ...                      '2017-06-16T01:00:00', 'NLDAS_FORA0125_H_2_0',
+        ...                      ['Tair', 'SWdown'], '', '')
+
+    Note:
+        This function is based on the NASA GES DISC tutorial notebook
+        `How_to_Access_GiC_Time_Series_Service.ipynb
+        <https://github.com/nasa/gesdisc-tutorials/blob/main/notebooks/How_to_Access_GiC_Time_Series_Service.ipynb>`_.
+        More information about the service is in `Giovanni in the Cloud: Time
+        Series Service
+        <https://disc.gsfc.nasa.gov/information/documents?title=Giovanni%20In%20The%20Cloud:%20Time%20Series%20Service>`_.
     """
     
     # if api_token is not passed, try to get it from the three files set in user's root direcotry
@@ -67,24 +93,24 @@ def get_nldas2_data(lat, lon, time_start, time_end, data, variables, out_dir, ap
 
 def _return_api_key(token):
     """
-    INPUT: 
-    token - string if you have your api key otherwise it expects three files to be in the root directory
+    Return a Giovanni API token, requesting one if none is given.
 
-    Instruction for API Key:
-    set giovanni api access token
-    you must either get the access token by signning in here: https://api.giovanni.earthdata.nasa.gov/signin, or
-    create three files, .netrc, .dodsrc and .urs_cookies in your root directory (see below for content of files) to obtain it programatically
-    
-    Before using giovanni api, you must approve "NASA GESDISC DATA ARCHIVE" at Applications menu in your NASA profile
-    Acceess to your profile: https://urs.earthdata.nasa.gov/profile 
-    
-    File Contents:
-    .netrc
-    machine urs.earthdata.nasa.gov login < uid > password < password >
-    .dodsrc
-    HTTP.NETRC=< YourHomeDirectory >/.netrc
-    HTTP.COOKIEJAR=< YourHomeDirectory >/.urs_cookies
-    .urs_cookies is empty. This file will stores cookies related to authentication when accessing NASA Earthdata servers 
+    If ``token`` is empty, a token is requested from
+    https://api.giovanni.earthdata.nasa.gov/signin using the NASA Earthdata
+    login in ``~/.netrc``, which needs a line like
+    ``machine urs.earthdata.nasa.gov login <uid> password <password>``.
+    A token can also be copied after signing in at that address. Before using
+    the Giovanni API, approve "NASA GESDISC DATA ARCHIVE" under Applications
+    in your Earthdata profile (https://urs.earthdata.nasa.gov/profile).
+
+    The templates in ``scripts/files_to_put_in_root_dir`` also include
+    ``.dodsrc`` and ``.urs_cookies``, which this function does not need.
+
+    Arguments:
+        token (str): Giovanni API token, or an empty string.
+
+    Returns:
+        token (str): Giovanni API token.
     """
     token = token
     
@@ -109,15 +135,21 @@ def _return_api_key(token):
 
 def _call_time_series(lat,lon,time_start,time_end,data,token):
     """
-    INPUTS:
-    lat - latitude
-    lon - longitude
-    time_start - start of time series in YYYY-MM-DDThh:mm:ss format (UTC)
-    end_time - end of the time series in YYYY-MM-DDThh:mm:ss format (UTC)
-    data - name of the data parameter for the time series
-    
-    OUTPUT:
-    time series csv output string
+    Request one variable from the Giovanni time series service.
+
+    Arguments:
+        lat (float): latitude of the point [decimal degrees].
+        lon (float): longitude of the point [decimal degrees].
+        time_start (str): start of the time series in UTC, as
+            'YYYY-MM-DDThh:mm:ss'.
+        time_end (str): end of the time series in UTC, as
+            'YYYY-MM-DDThh:mm:ss'.
+        data (str): dataset and variable name, e.g.
+            'NLDAS_FORA0125_H_2_0_Tair'.
+        token (str): Giovanni API token.
+
+    Returns:
+        text (str): the CSV text returned by the service.
     """
     time_series_url = "https://api.giovanni.earthdata.nasa.gov/timeseries"
     query_parameters = {
@@ -132,11 +164,19 @@ def _call_time_series(lat,lon,time_start,time_end,data,token):
 
 def _parse_csv(ts):
     """
-    INPUTS:
-    ts - time series output of the time series service
-    
-    OUTPUTS:
-    headers,df - the headers from the CSV as a dict and the values in a pandas dataframe with utc timestamp index
+    Parse the CSV text returned by the Giovanni time series service.
+
+    The first 13 lines are header lines with a key and a value. If the service
+    sends an error message instead of data, the message is printed and both
+    returned values are None.
+
+    Arguments:
+        ts (str): CSV text from :func:`_call_time_series`.
+
+    Returns:
+        headers (dict): the header keys and values, or None after an error.
+        df (:obj:`pandas.DataFrame`): values with a UTC timestamp index and one
+        column named after the variable, or None after an error.
     """
     with io.StringIO(ts) as f:
         # the first 13 rows are header
