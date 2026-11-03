@@ -25,7 +25,7 @@ extensions = ['sphinx.ext.autodoc', 'sphinx.ext.napoleon']
 
 # packages fluxfootprint imports when loaded, mocked so Read the Docs only
 # needs sphinx and the theme installed
-autodoc_mock_imports = ['numpy', 'pandas', 'affine', 'requests']
+autodoc_mock_imports = ['numpy', 'pandas', 'affine', 'requests', 'refet']
 autodoc_member_order = 'bysource'
 
 # show function names without the module path, they are imported from

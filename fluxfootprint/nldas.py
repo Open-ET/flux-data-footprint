@@ -16,6 +16,7 @@ import os
 import io
 import pandas as pd
 import numpy as np
+import refet
 from pathlib import Path
 
 
@@ -89,6 +90,77 @@ def get_nldas2_data(lat, lon, time_start, time_end, data, variables, out_dir, ap
         print(f"NLDAS data is saved in {nldas_ts_outf}")
 
     return merged_df
+
+
+def calc_nldas2_eto(nldas_df, lat, lon, elevation):
+    """
+    Calculate hourly ASCE standardized reference ET from NLDAS-2 data.
+
+    Short (grass, ETo) and tall (alfalfa, ETr) reference ET are calculated
+    for every hour with the hourly ASCE standardized Penman-Monteith
+    equation of the refet package. Wind speed comes from the NLDAS-2 10 m
+    wind components, and vapor pressure from specific humidity and air
+    pressure. The NLDAS-2 10 m wind speed is scaled to a height of 2 m
+    using a logarithmic vertical velocity profile.
+
+    Arguments:
+        nldas_df (:obj:`pandas.DataFrame`): hourly NLDAS-2 data with a UTC
+            timestamp index and the columns PSurf [Pa], Qair [kg kg-1],
+            Tair [K], SWdown [W m-2], Wind_E and Wind_N [m s-1], as returned
+            by :func:`get_nldas2_data`.
+        lat (float): latitude of the point [decimal degrees].
+        lon (float): longitude of the point [decimal degrees].
+        elevation (float): elevation of the point [m].
+
+    Returns:
+        eto_df (:obj:`pandas.DataFrame`): hourly values with the same UTC
+        index and the columns ETr and ETo [mm h-1], ea (actual vapor
+        pressure [kPa]), sph (specific humidity [kg kg-1]), wind (10 m wind
+        speed [m s-1]), pair (air pressure [kPa]), temp (air temperature
+        [C]) and rs (incoming shortwave radiation [W m-2]).
+
+    Example:
+        >>> variables = ['PSurf', 'Qair', 'Tair', 'SWdown', 'Wind_E', 'Wind_N']
+        >>> nldas_df = get_nldas2_data(38.1, -121.5, '2017-06-15T12:00:00',
+        ...                            '2017-06-16T03:00:00',
+        ...                            'NLDAS_FORA0125_H_2_0', variables,
+        ...                            '', '')
+        >>> eto_df = calc_nldas2_eto(nldas_df, 38.1, -121.5, 2.0)
+
+    Note:
+        refet takes the UTC hour at the start of each time step, the same as
+        the NLDAS-2 time stamps, and the longitude to find solar time.
+    """
+    df = nldas_df.copy()
+
+    # air pressure, Pa to kPa
+    df['pair'] = df['PSurf'] / 1000
+    # actual vapor pressure from specific humidity [kPa]
+    df['ea'] = refet.calcs._actual_vapor_pressure(
+        q=df['Qair'].to_numpy(), pair=df['pair'].to_numpy())
+    # wind speed from the 10 m wind components [m s-1]
+    df['wind'] = np.sqrt(df['Wind_E'] ** 2 + df['Wind_N'] ** 2)
+    # air temperature, K to C
+    df['temp'] = df['Tair'] - 273.15
+    df['doy'] = df.index.dayofyear
+    df['HH'] = df.index.hour
+
+    # one hour at a time, NLDAS-2 wind is measured at 10 m
+    for row in df.itertuples():
+        calculator = refet.Hourly(
+            tmean=row.temp, ea=row.ea, rs=row.SWdown, uz=row.wind, zw=10,
+            elev=elevation, lat=lat, lon=lon, doy=row.doy, time=row.HH,
+            method='asce', input_units={'rs': 'w/m2'})
+        df.loc[row.Index, 'ETr'] = calculator.etr()[0]
+        df.loc[row.Index, 'ETo'] = calculator.eto()[0]
+
+    eto_df = pd.DataFrame({
+        'ETr': df['ETr'], 'ETo': df['ETo'], 'ea': df['ea'],
+        'sph': df['Qair'], 'wind': df['wind'], 'pair': df['pair'],
+        'temp': df['temp'], 'rs': df['SWdown']})
+    eto_df.index.name = 'date'
+
+    return eto_df
 
 
 def _return_api_key(token):

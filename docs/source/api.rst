@@ -10,3 +10,5 @@ All functions below can be imported directly from the package, e.g. ``from fluxf
 .. autofunction:: fluxfootprint.utils.find_transform
 
 .. autofunction:: fluxfootprint.nldas.get_nldas2_data
+
+.. autofunction:: fluxfootprint.nldas.calc_nldas2_eto
