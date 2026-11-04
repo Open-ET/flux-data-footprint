@@ -12,3 +12,7 @@ All functions below can be imported directly from the package, e.g. ``from fluxf
 .. autofunction:: fluxfootprint.nldas.get_nldas2_data
 
 .. autofunction:: fluxfootprint.nldas.calc_nldas2_eto
+
+.. autofunction:: fluxfootprint.utils.eto_weights
+
+.. autofunction:: fluxfootprint.utils.weighted_footprint

@@ -12,6 +12,7 @@ Example:
 
 from .ffp import ffp_climatology
 from .nldas import get_nldas2_data, calc_nldas2_eto
-from .utils import find_transform, mask_fp_cutoff
+from .utils import (find_transform, mask_fp_cutoff, eto_weights,
+                    weighted_footprint)
 
 __version__ = '0.1.1'
