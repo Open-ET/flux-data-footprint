@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.2.0
+-----
+
+* ``get_nldas2_eto`` downloads the NLDAS-2 data reference ET needs for a point and returns hourly ASCE standardized short (ETo) and tall (ETr) reference ET.
+* ``calc_nldas2_eto`` calculates the same hourly reference ET from NLDAS-2 data downloaded with ``get_nldas2_data``.
+* ``eto_weights`` and ``weighted_footprint`` combine hourly footprints into a daily or monthly footprint weighted by hourly ETo. Each hour's weight is its share of the total ETo over the hours that have a footprint, and hours with negative ETo get no weight.
+
+All of these functions are not new but were only part of example notebooks previously, now they are integrated into existing modules of the package.
+
 0.1.1 
 -----
 

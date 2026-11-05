@@ -19,6 +19,10 @@ import numpy as np
 import refet
 from pathlib import Path
 
+# NLDAS-2 hourly forcing dataset and the variables reference ET needs
+NLDAS2_DATASET = 'NLDAS_FORA0125_H_2_0'
+ETO_VARIABLES = ['SWdown', 'PSurf', 'Qair', 'Tair', 'Wind_E', 'Wind_N']
+
 
 def get_nldas2_data(lat, lon, time_start, time_end, data, variables, out_dir, api_token):
     """
@@ -161,6 +165,60 @@ def calc_nldas2_eto(nldas_df, lat, lon, elevation):
     eto_df.index.name = 'date'
 
     return eto_df
+
+
+def get_nldas2_eto(lat, lon, time_start, time_end, elevation, out_dir='',
+                   api_token=''):
+    """
+    Download NLDAS-2 data for a point and calculate hourly reference ET.
+
+    Downloads the six NLDAS-2 variables that reference ET needs (SWdown,
+    PSurf, Qair, Tair, Wind_E and Wind_N) with :func:`get_nldas2_data` and
+    calculates hourly ASCE standardized short (ETo) and tall (ETr) reference
+    ET with :func:`calc_nldas2_eto`.
+
+    Arguments:
+        lat (float): latitude of the point [decimal degrees].
+        lon (float): longitude of the point [decimal degrees].
+        time_start (str): start of the time series in UTC, as
+            'YYYY-MM-DDThh:mm:ss'.
+        time_end (str): end of the time series in UTC, as
+            'YYYY-MM-DDThh:mm:ss'.
+        elevation (float): elevation of the point [m].
+
+    Keyword Arguments:
+        out_dir (str or :obj:`pathlib.Path`): default ''. Folder to save the
+            downloaded NLDAS-2 data in as ``nldas.csv``, or an empty string
+            to not save a file.
+        api_token (str): default ''. Giovanni API token. If empty, a token
+            is requested with the Earthdata login in ``~/.netrc``, see
+            :func:`_return_api_key`.
+
+    Returns:
+        eto_df (:obj:`pandas.DataFrame`): hourly values with a UTC timestamp
+        index, the columns of :func:`calc_nldas2_eto`.
+
+    Raises:
+        ValueError: if the download is missing any of the six variables.
+
+    Example:
+        >>> eto_df = get_nldas2_eto(38.1, -121.5, '2017-06-15T12:00:00',
+        ...                         '2017-06-16T03:00:00', 2.0)
+    """
+    if out_dir:
+        out_dir = Path(out_dir)
+    nldas_df = get_nldas2_data(lat, lon, time_start, time_end,
+                               NLDAS2_DATASET, ETO_VARIABLES, out_dir,
+                               api_token)
+
+    # a variable that returned no data is skipped by get_nldas2_data
+    missing = [var for var in ETO_VARIABLES if var not in nldas_df.columns]
+    if missing:
+        raise ValueError(f'NLDAS-2 download is missing {missing}, reference '
+                         'ET cannot be calculated.')
+    nldas_df.index.name = 'date'
+
+    return calc_nldas2_eto(nldas_df, lat, lon, elevation)
 
 
 def _return_api_key(token):
